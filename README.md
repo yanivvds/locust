@@ -56,7 +56,7 @@ New query generation models should inherit from [base_generator](./models/genera
 For evaluating models, use the following commands for each task as a reference:
    - **Table retrieval:**<br>
    ```
-   env PYTHONPATH=. LANGUAGE=<lang> python3 ./evaluation/evaluate_table_retrieval.py --model_path <my_model.py> --query_type sql --k <k> --mode table
+   env PYTHONPATH=. LANGUAGE=<lang> python3 ./evaluation/evaluate_table_retrieval.py --model_path <my_model.py> --query_type sql --k <k>
    ```
    - **Query generation:**<br>
    ```

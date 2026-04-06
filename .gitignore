@@ -40,6 +40,12 @@ test-output.xml
 
 # Documentation
 docs/build/
+documentation/*
+
+# Claude
+CLAUDE.md
+.claude/
+
 
 # Research
 notebooks/*

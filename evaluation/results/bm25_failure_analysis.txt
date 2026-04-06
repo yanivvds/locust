@@ -1,0 +1,335 @@
+======================================================================
+BM25 FAILURE ANALYSIS  (k=10, language=en)
+======================================================================
+Correct  : 155 / 307  (50.5%)
+Failures : 152 / 307  (49.5%)
+Showing first 20 failures below.
+
+FAILURE #1
+----------------------------------------------------------------------
+Question    : How much gas and electricity did the transportation sector use in 2019
+
+Correct table : 82117ENG
+Index body    : natur gas electr suppli nation grid construct servic content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 ...
+Failure reason: [OTHER]        — correct table scored much lower than the top prediction
+
+Top-3 predicted instead:
+  #1 83989ENG (score=32.34)
+      energi balanc sheet suppli consumpt sector content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 ...
+  #2 83140ENG (score=30.82)
+      energi balanc sheet suppli transform consumpt content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 ...
+  #3 37281eng (score=29.35)
+      energi balanc sheet key figur 19462016 content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 ...
+
+FAILURE #2
+----------------------------------------------------------------------
+Question    : What is the average electricity consumption per square meter for communal healthcare buildings and snackbars built from 1994 with a floor area between 250 and 500 square meters?
+
+Correct table : 83376ENG
+Index body    : energi intens build servic sector construct period content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform ...
+Failure reason: [OTHER]        — correct table scored much lower than the top prediction
+
+Top-3 predicted instead:
+  #1 83374ENG (score=125.60)
+      energi intens build servic sector floor area content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform ...
+  #2 85592ENG (score=84.55)
+      averag energi price consum content 1 explan 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 general inform tabl ...
+  #3 70789eng (score=83.84)
+      renew electr domest product import export 19902013 content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform ...
+
+FAILURE #3
+----------------------------------------------------------------------
+Question    : How much liquid biofuel was consumed in transport in 2007 and 2008?
+
+Correct table : 84714ENG
+Index body    : liquid biofuel transport suppli consumpt blend tabl content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform ...
+Failure reason: [OTHER]        — correct table scored much lower than the top prediction
+
+Top-3 predicted instead:
+  #1 80099eng (score=40.38)
+      crude balanc sheet suppli consumpt stock 19442015 content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform ...
+  #2 71456eng (score=40.20)
+      liquid biofuel transport suppli consumpt blend 20032018 content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform ...
+  #3 83140ENG (score=35.75)
+      energi balanc sheet suppli transform consumpt content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 ...
+
+FAILURE #4
+----------------------------------------------------------------------
+Question    : What was the average amount of natural gas supplied to ict businesses in 2016 and 2017?
+
+Correct table : 82117ENG
+Index body    : natur gas electr suppli nation grid construct servic content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 ...
+Failure reason: [OTHER]        — correct table scored much lower than the top prediction
+
+Top-3 predicted instead:
+  #1 37281eng (score=41.97)
+      energi balanc sheet key figur 19462016 content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 ...
+  #2 83140ENG (score=41.64)
+      energi balanc sheet suppli transform consumpt content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 ...
+  #3 82375ENG (score=38.84)
+      energi consumpt household energi commod 19752016 content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 ...
+
+FAILURE #5
+----------------------------------------------------------------------
+Question    : What was the average government spending on high school education in years 1950 to 1952 for years when the amount was at least 63 million euros?
+
+Correct table : 80509eng
+Index body    : govern expenditur educ student grant loan sinc 1900 content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 ...
+Failure reason: [OTHER]        — correct table scored much lower than the top prediction
+
+Top-3 predicted instead:
+  #1 80393eng (score=56.51)
+      educ educ expenditur cbsoecd indic content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 general ...
+  #2 60046eng (score=52.29)
+      expenditur brief level 3 household characterist 19922010 content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform ...
+  #3 7197ENG (score=49.00)
+      cpi consum price indic content 1 general inform 2 link relev tabl articl 3 definit explan symbol 4 descript survey 1 general inform consum price ...
+
+FAILURE #6
+----------------------------------------------------------------------
+Question    : What was the percentage of people with arthrosis in their hips or knees in the Caribbean Netherlands in 2017 for those aged 15-24 and those 65 or older with a high education level, and what was the fat content percentage in the same year?
+
+Correct table : 82291ENG
+Index body    : caribbean nl health disord person characterist content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 ...
+Failure reason: [OTHER]        — correct table scored much lower than the top prediction
+Correct table : 7425eng
+Index body    : milk suppli dairi product dairi factori content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 ...
+Failure reason: [OTHER]        — correct table scored much lower than the top prediction
+
+Top-3 predicted instead:
+  #1 82803ENG (score=57.09)
+      caribbean netherland use internet person person characterist content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform ...
+  #2 37775eng (score=55.23)
+      feel insecur background characterist content 1 general inform 2 link relev tabl articl 3 definit explan symbol 4 descript survey 1 general inform percentag resid ...
+  #3 80416ENG (score=0.00)
+      pump price motor fuel per type per day content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 ...
+
+FAILURE #7
+----------------------------------------------------------------------
+Question    : What were the reported parking problems in St. Eustatius during 2017/2018 among men, women, and people aged 45 and older?
+
+Correct table : 82557ENG
+Index body    : caribbean netherland nuisanc neighbourhood person characterist content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 ...
+Failure reason: [OTHER]        — correct table scored much lower than the top prediction
+
+Top-3 predicted instead:
+  #1 82803ENG (score=67.46)
+      caribbean netherland use internet person person characterist content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform ...
+  #2 85332ENG (score=58.61)
+      caribbean netherland birth fertil age mother content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 ...
+  #3 84698ENG (score=58.35)
+      caribbean netherland popul sex age nation 20112023 content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform ...
+
+FAILURE #8
+----------------------------------------------------------------------
+Question    : In which year between 2001 and 2004 did Sint-Eustatius have the highest renewable electricity generation?
+
+Correct table : 81154eng
+Index body    : caribbean netherland connect product electr water content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 ...
+Failure reason: [TERMINOLOGY]  — no word overlap between question and correct table's index body
+
+Top-3 predicted instead:
+  #1 70789eng (score=42.47)
+      renew electr domest product import export 19902013 content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform ...
+  #2 37823eng (score=39.15)
+      electr product mean product content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 general inform ...
+  #3 80030eng (score=38.04)
+      electr heat product input energi commod content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 ...
+
+FAILURE #9
+----------------------------------------------------------------------
+Question    : How much natural gas was delivered to the health and social work sector in 2011, 2019 and 2022 in the city Velsen
+
+Correct table : 82538ENG
+Index body    : suppli natur gas electr public grid compani sic 2008 region content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc ...
+Failure reason: [OTHER]        — correct table scored much lower than the top prediction
+
+Top-3 predicted instead:
+  #1 83140ENG (score=43.02)
+      energi balanc sheet suppli transform consumpt content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 ...
+  #2 83989ENG (score=42.30)
+      energi balanc sheet suppli consumpt sector content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 ...
+  #3 86103ENG (score=42.26)
+      natur gas balanc sheet suppli consumpt content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 ...
+
+FAILURE #10
+----------------------------------------------------------------------
+Question    : Total renewable energy output in Saba between 2015 and 2018
+
+Correct table : 81154eng
+Index body    : caribbean netherland connect product electr water content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 ...
+Failure reason: [OTHER]        — correct table scored much lower than the top prediction
+
+Top-3 predicted instead:
+  #1 83140ENG (score=29.52)
+      energi balanc sheet suppli transform consumpt content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 ...
+  #2 70789eng (score=28.19)
+      renew electr domest product import export 19902013 content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform ...
+  #3 71456eng (score=28.12)
+      liquid biofuel transport suppli consumpt blend 20032018 content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform ...
+
+FAILURE #11
+----------------------------------------------------------------------
+Question    : How much electricity was delivered to the culture, sports, and recreation sector in Amstelveen in 2010?
+
+Correct table : 82538ENG
+Index body    : suppli natur gas electr public grid compani sic 2008 region content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc ...
+Failure reason: [OTHER]        — correct table scored much lower than the top prediction
+
+Top-3 predicted instead:
+  #1 7193eng (score=36.80)
+      sport facil type use 1987 2012 content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 ...
+  #2 7083eng (score=35.70)
+      sport club school member oper cost revenu 19872006 content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 ...
+  #3 37823eng (score=34.00)
+      electr product mean product content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 general inform ...
+
+FAILURE #12
+----------------------------------------------------------------------
+Question    : What was the anticipated change in investment for companies manufacturing electrical equipment in 2013 and how did it trend between 2013 and 2016?
+
+Correct table : 85209ENG
+Index body    : invest enterpris industri expect realize content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 general ...
+Failure reason: [OTHER]        — correct table scored much lower than the top prediction
+
+Top-3 predicted instead:
+  #1 37991eng (score=46.10)
+      produc confid januari 1985october2011 content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 general inform ...
+  #2 37281eng (score=42.48)
+      energi balanc sheet key figur 19462016 content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 ...
+  #3 82371ENG (score=42.10)
+      energi consumpt transport energi commod 1955 2013 2nd quarter content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method ...
+
+FAILURE #13
+----------------------------------------------------------------------
+Question    : Total electricity use for public offices, sports facilities, and car-related service buildings built since 1994, for offices and repair shops sized up to 250 m2 and others between 500–1,000 m2
+
+Correct table : 83376ENG
+Index body    : energi intens build servic sector construct period content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform ...
+Failure reason: [OTHER]        — correct table scored much lower than the top prediction
+Correct table : 83374ENG
+Index body    : energi intens build servic sector floor area content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform ...
+Failure reason: [OTHER]        — correct table scored much lower than the top prediction
+
+Top-3 predicted instead:
+  #1 70789eng (score=92.40)
+      renew electr domest product import export 19902013 content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform ...
+  #2 71457eng (score=89.30)
+      renew energi capac domest product use 19902013 content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform ...
+  #3 37512eng (score=88.80)
+      institut investor invest properti 1980 2012 content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 ...
+
+FAILURE #14
+----------------------------------------------------------------------
+Question    : Which had a higher domestic production in 2018: contaminated wood waste or wood pellets?
+
+Correct table : 85899ENG
+Index body    : nation solid biomass balanc product consumpt content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 ...
+Failure reason: [OTHER]        — correct table scored much lower than the top prediction
+
+Top-3 predicted instead:
+  #1 37350ENG (score=53.46)
+      sale develop manufactur industri sic 1537 20 person content 1 general inform 2 link relev tabl articl 3 definit explan symbol 4 descript survey 1 ...
+  #2 83989ENG (score=50.40)
+      energi balanc sheet suppli consumpt sector content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 ...
+  #3 83140ENG (score=49.07)
+      energi balanc sheet suppli transform consumpt content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 ...
+
+FAILURE #15
+----------------------------------------------------------------------
+Question    : Which had the lowest natural gas consumption in 2010: transportation companies or restaurants and hotels?
+
+Correct table : 82117ENG
+Index body    : natur gas electr suppli nation grid construct servic content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 ...
+Failure reason: [OTHER]        — correct table scored much lower than the top prediction
+
+Top-3 predicted instead:
+  #1 00372eng (score=40.10)
+      natur gas balanc sheet suppli consumpt 1946 may 2025 content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method ...
+  #2 86103ENG (score=39.92)
+      natur gas balanc sheet suppli consumpt content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 ...
+  #3 83140ENG (score=39.03)
+      energi balanc sheet suppli transform consumpt content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 ...
+
+FAILURE #16
+----------------------------------------------------------------------
+Question    : How many hydropower plants were operational at the end of 1994 and 1995, and what was the number of deaths in men aged over 80 due to unknown causes during those years?
+
+Correct table : 82610ENG
+Index body    : renew electr product capac content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 general inform ...
+Failure reason: [OTHER]        — correct table scored much lower than the top prediction
+Correct table : 7052eng
+Index body    : death under caus death shortlist sex age content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform ...
+Failure reason: [OTHER]        — correct table scored much lower than the top prediction
+
+Top-3 predicted instead:
+  #1 37527eng (score=54.24)
+      number disabl benefit inflow outflow 19982009 content 1 general inform 2 link relev tabl articl 3 definit explan symbol 4 descript survey 1 general inform ...
+  #2 81628ENG (score=52.80)
+      health lifestyl health care use suppli caus death key figur content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc ...
+  #3 81655ENG (score=51.82)
+      death medic endoflif decis age caus death content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 descript survey 5 inform ...
+
+FAILURE #17
+----------------------------------------------------------------------
+Question    : What was the expected growth rate of investments in the chemical manufacturing industry in 2021 compared to 2020?
+
+Correct table : 85209ENG
+Index body    : invest enterpris industri expect realize content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 general ...
+Failure reason: [TERMINOLOGY]  — no word overlap between question and correct table's index body
+
+Top-3 predicted instead:
+  #1 37350ENG (score=36.94)
+      sale develop manufactur industri sic 1537 20 person content 1 general inform 2 link relev tabl articl 3 definit explan symbol 4 descript survey 1 ...
+  #2 85986ENG (score=36.52)
+      invest motiv enterpris expect realize content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 general ...
+  #3 80416ENG (score=0.00)
+      pump price motor fuel per type per day content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 ...
+
+FAILURE #18
+----------------------------------------------------------------------
+Question    : How much CO2 emission was prevented in 2016 by using biomass as fuel in transportation?
+
+Correct table : 84918ENG
+Index body    : avoid use fossil energi emiss co2 content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 ...
+Failure reason: [OTHER]        — correct table scored much lower than the top prediction
+
+Top-3 predicted instead:
+  #1 85669ENG (score=47.28)
+      emiss greenhous gase accord ipcc guidelin content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 ...
+  #2 85668ENG (score=45.32)
+      emiss air dutch territori total content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 general ...
+  #3 80448eng (score=44.23)
+      emiss air dutch territori mobil sourc 19902018 content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform ...
+
+FAILURE #19
+----------------------------------------------------------------------
+Question    : What was the electricity network cost per kWh for medium-sized businesses in 2019, excluding VAT but including other taxes?
+
+Correct table : 85666ENG
+Index body    : price natur gas electr content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 general inform ...
+Failure reason: [OTHER]        — correct table scored much lower than the top prediction
+
+Top-3 predicted instead:
+  #1 85592ENG (score=52.83)
+      averag energi price consum content 1 explan 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 general inform tabl ...
+  #2 84672ENG (score=51.68)
+      averag energi price consum 2018 2023 content 1 explan 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 general ...
+  #3 70789eng (score=47.14)
+      renew electr domest product import export 19902013 content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform ...
+
+FAILURE #20
+----------------------------------------------------------------------
+Question    : In which year between 2017 and 2020 did the country import the most tons of branches, tree tops, and stumps as solid biomass?
+
+Correct table : 85899ENG
+Index body    : nation solid biomass balanc product consumpt content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 ...
+Failure reason: [OTHER]        — correct table scored much lower than the top prediction
+
+Top-3 predicted instead:
+  #1 83140ENG (score=58.98)
+      energi balanc sheet suppli transform consumpt content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 ...
+  #2 83989ENG (score=52.24)
+      energi balanc sheet suppli consumpt sector content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 inform 1 ...
+  #3 80416ENG (score=0.00)
+      pump price motor fuel per type per day content 1 general inform 2 definit explan symbol 3 link relev tabl articl 4 sourc method 5 ...

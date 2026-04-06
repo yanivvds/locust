@@ -1,0 +1,22 @@
+{
+    "model_path": "models/retrievers/bm25_retriever.py",
+    "dataset_path": "/Users/yanivvanderstigchel/Docs/locust/data/qa_pairs/en/complex_en_test.jsonl",
+    "query_type": "sql",
+    "metrics": {
+        "exact_match_accuracy": 0.0,
+        "accuracy_at_10": 0.0,
+        "accuracies_until_k": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+        ]
+    },
+    "total_questions": 307
+}
