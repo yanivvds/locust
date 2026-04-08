@@ -10,6 +10,7 @@ import colbert.infra.launcher
 original_setup_new_process = colbert.infra.launcher.setup_new_process
 original_DDP = nn.parallel.DistributedDataParallel
 
+
 def patched_DDP(module, *args, **kwargs):
     """
         A patched version of DistributedDataParallel that sets device_ids and output_device to None
@@ -21,6 +22,7 @@ def patched_DDP(module, *args, **kwargs):
         kwargs['output_device'] = None
     
     return original_DDP(module, *args, **kwargs)
+
 
 def patched_setup_new_process(*args, **kwargs):
     """
@@ -64,3 +66,7 @@ def patched_setup_new_process(*args, **kwargs):
     colbert.utils.distributed.init = original_colbert_dist_init
 
     return result
+
+
+# Apply the monkey-patch
+colbert.infra.launcher.setup_new_process = patched_setup_new_process
