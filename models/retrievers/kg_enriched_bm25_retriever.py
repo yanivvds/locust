@@ -17,17 +17,14 @@ Design differences from the base BM25Retriever:
   - Time and geo dimensions excluded (same as base BM25)
   - Cache stored separately so both retrievers can coexist
 """
-import itertools
 import json
 import nltk
 import os
-import string
-from collections import OrderedDict
-from operator import itemgetter
-from tqdm import tqdm
+from collections import OrderedDict, defaultdict
 from typing import Dict, List
 
 from rank_bm25 import BM25Plus
+from tqdm import tqdm
 
 import config
 from models.retrievers.base_retriever import BaseRetriever
@@ -57,8 +54,12 @@ class KGEnrichedBM25Retriever(BaseRetriever):
         super().__init__()
 
         self.enrich = enrich != 'False'
+
+        # Build (or load from cache) a dict of {table_id -> processed body text}
         enriched_tables = get_enriched_table_labels(enrich=self.enrich)
         self.table_ids = list(enriched_tables.keys())
+
+        # Tokenize each body (already pre-processed by process_text, so split on spaces)
         corpus = [enriched_tables[t]['body'] for t in self.table_ids]
         tokenized_corpus = [doc.split() for doc in corpus]
 
@@ -74,14 +75,12 @@ class KGEnrichedBM25Retriever(BaseRetriever):
         :param k: number of tables to return
         :return: OrderedDict {table_id: {'score': float, 'dimensions': {}, 'measures': {}}}
         """
+        # Apply the same text pre-processing as the index bodies
         processed = process_text(question)
         scores = self.index.get_scores(processed.split())
 
-        ranked = sorted(
-            zip(self.table_ids, scores),
-            key=lambda x: x[1],
-            reverse=True
-        )
+        # Sort all (table_id, score) pairs descending and take top-k
+        ranked = sorted(zip(self.table_ids, scores), key=lambda x: x[1], reverse=True)
 
         results = OrderedDict()
         for table_id, score in ranked[:k]:
@@ -106,7 +105,8 @@ def get_enriched_table_labels(enrich: bool = True) -> Dict[str, Dict[str, str]]:
         with open(cache_path) as f:
             return json.load(f)
 
-    # ── Step 1: fetch all table titles ───────────────────────────────────────
+    # ── Step 1: fetch all table titles/abstracts/descriptions ────────────────
+    # Each table can have multiple text properties, so we GROUP BY table id.
     table_query = """
         PREFIX dcat: <http://www.w3.org/ns/dcat#>
         PREFIX dct: <http://purl.org/dc/terms/>
@@ -119,30 +119,35 @@ def get_enriched_table_labels(enrich: bool = True) -> Dict[str, Dict[str, str]]:
     """
     try:
         rows = engine.select(table_query)
-        props = [(r['id']['value'], (r.get('label', False) or {'value': ''})['value']) for r in rows]
-        table_it = itertools.groupby(props, itemgetter(0))
     except Exception as e:
         raise RuntimeError(f"Failed to fetch table IDs: {e}")
 
+    # Group text properties by table_id using a plain dict instead of itertools.groupby
+    table_texts: Dict[str, List[str]] = defaultdict(list)
+    for row in rows:
+        table_id = row['id']['value']
+        label = (row.get('label') or {}).get('value', '')
+        if label:
+            table_texts[table_id].append(label.strip())
+
     tables: Dict[str, Dict] = {}
-    all_table_ids = list({p[0] for p in props})
     desc = "Building enriched table bodies" if enrich else "Building flat table bodies (ablation)"
 
-    for table_id, table_props in tqdm(
-        table_it,
-        total=len(all_table_ids),
-        desc=desc,
-        bar_format=config.TQDM_BAR_FMT
-    ):
-        # Base body: table title / abstract / description
+    for table_id, text_parts in tqdm(table_texts.items(), desc=desc, bar_format=config.TQDM_BAR_FMT):
+        # Concatenate all text properties (title + abstract + description) into one body
         base_text = ' '.join(
-            f"{p[1].strip()}{'.' if p[1] and p[1][-1] != '.' else ''}"
-            for p in table_props if p[1]
+            part if part.endswith('.') else part + '.'
+            for part in text_parts
         )
 
         dim_labels = ''
         if enrich:
             # ── Step 2: fetch dimension and measure labels for this table ─────
+            # We add prefLabel/altLabel of each dimension/measure concept so that
+            # question terms (e.g. "transportation sector") that only appear in
+            # dimension labels — not in the table description — can still match.
+            # Time and geo dimensions are excluded: they are ubiquitous across all
+            # tables and add noise rather than discriminative signal.
             dim_msr_query = f"""
                 PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
                 PREFIX dct: <http://purl.org/dc/terms/>

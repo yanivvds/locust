@@ -1,0 +1,22 @@
+{
+    "model_path": "models/retrievers/kg_enriched_bm25_retriever.py",
+    "dataset_path": "/Users/yanivvanderstigchel/Docs/locust/data/qa_pairs/nl/complex_nl_test.jsonl",
+    "query_type": "sql",
+    "metrics": {
+        "exact_match_accuracy": 0.21333333333333335,
+        "accuracy_at_10": 0.5616666666666666,
+        "accuracies_until_k": [
+            0.27166666666666667,
+            0.36,
+            0.4266666666666667,
+            0.445,
+            0.49333333333333335,
+            0.5166666666666667,
+            0.5516666666666666,
+            0.575,
+            0.6,
+            0.6166666666666667
+        ]
+    },
+    "total_questions": 300
+}
