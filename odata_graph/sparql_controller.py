@@ -413,6 +413,45 @@ class SparqlEngine(object):
         res = self.select(query)
         return {d['id']['value']: d['prefLabel']['value'] for d in res}
 
+    def get_table_measure_units(self, table_id: str) -> dict:
+        """
+            Return unit metadata for all measures of a table.
+            Fetches both QUDT standard units (qudt:unit) and CBS-specific unit strings
+            (qudt:unitOfSystem), mirroring the predicates used in validate_msr_unit_compatibility().
+            A measure may have multiple unit values; all are collected into lists.
+
+            :param table_id: table identifier string, e.g. '85055ENG'
+            :returns: dict mapping measure node id → {'units': [qudt_uri, ...], 'cbs_units': [string, ...]}
+        """
+        query = (f"""
+            PREFIX qb:   <http://purl.org/linked-data/cube#>
+            PREFIX dct:  <http://purl.org/dc/terms/>
+            PREFIX qudt: <http://qudt.org/schema/qudt/>
+
+            SELECT ?node_id ?unit ?cbs_unit WHERE {{
+                ?table dct:identifier "{table_id}" .
+                ?table qb:measure ?node .
+                ?node  dct:identifier ?node_id .
+                OPTIONAL {{ ?node qudt:unit ?unit }}
+                OPTIONAL {{ ?node qudt:unitOfSystem ?cbs_unit }}
+            }}
+        """)
+
+        _none = {'None', 'none', '', None}
+        res = self.select(query)
+        result = {}
+        for r in res:
+            node_id = r['node_id']['value']
+            if node_id not in result:
+                result[node_id] = {'units': [], 'cbs_units': []}
+            unit_val = r.get('unit', {}).get('value')
+            if unit_val not in _none:
+                result[node_id]['units'].append(unit_val)
+            cbs_val = r.get('cbs_unit', {}).get('value')
+            if cbs_val not in _none:
+                result[node_id]['cbs_units'].append(cbs_val)
+        return result
+
     def get_node_text_props(self, node: URIRef) -> dict:
         query = (f"""
             SELECT * WHERE {{ 

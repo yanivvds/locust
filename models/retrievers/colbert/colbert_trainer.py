@@ -57,7 +57,8 @@ class ColBERTTrainer(object):
                  search_k: int = 100,
                  mix_ratio: float = 0.0,
                  nbits: int = 4,
-                 rebuild_only: bool = False):
+                 rebuild_only: bool = False,
+                 collection_variant: str = None):
         """
             Manages the full ColBERT training pipeline: dataset creation, negative sampling, and
             (optionally) iterative hard negative mining across multiple training rounds.
@@ -114,7 +115,9 @@ class ColBERTTrainer(object):
         self.base_path = f"{config.PATH_DIR_DATA}/colbert_retriever/{output_name}"
         self.triples_path = f"{self.base_path}/triples_{mode}.jsonl"
         self.queries_path = f"{self.base_path}/queries_{mode}.tsv"
-        self.collection_path = f"{self.base_path}/collection_{mode}.tsv"
+        variant_suffix = f"_{collection_variant}" if collection_variant else ""
+        self.collection_path = f"{self.base_path}/collection_{mode}{variant_suffix}.tsv"
+        self.collection_variant = collection_variant
 
         if rebuild_only:
             # Minimal init — only paths are needed for rebuild_collection()
@@ -285,7 +288,8 @@ class ColBERTTrainer(object):
     @staticmethod
     def build_enriched_collection(
             nodes: Dict[str, Dict[str, str]],
-            max_child_labels: int = 15) -> Dict[str, Dict[str, str]]:
+            max_child_labels: int = 15,
+            enrich_units: bool = False) -> Dict[str, Dict[str, str]]:
         """
             Enrich document representations for the ColBERT collection by cross-pollinating
             information between tables and their child measures/dimensions.
@@ -330,6 +334,31 @@ class ColBERTTrainer(object):
                 suffix_parts.append(f"Measures: {', '.join(msr_labels)}")
             if dim_labels:
                 suffix_parts.append(f"Dimensions: {', '.join(dim_labels)}")
+
+            if enrich_units:
+                from odata_graph import engine as _engine
+                unit_map = _engine.get_table_measure_units(table_id)
+                # Collect unique unit labels across all measures (skip pure-numeric node IDs).
+                # Format: "minutes (MIN), passenger kilometres (KiloM)" — compact, deduplicated.
+                seen_pairs: set = set()
+                unit_parts = []
+                for node_key, unit_info in unit_map.items():
+                    if node_key.isdigit():
+                        continue  # skip numeric aliases (e.g. '7', '6') — same node, duplicate data
+                    qudt_codes = [u.rsplit('/', 1)[-1] for u in unit_info['units']]
+                    for cbs in unit_info['cbs_units'] or [None]:
+                        for code in qudt_codes or [None]:
+                            pair = (cbs, code)
+                            if pair in seen_pairs or pair == (None, None):
+                                continue
+                            seen_pairs.add(pair)
+                            label = cbs.strip() if cbs else code
+                            suffix = f" ({code})" if code and cbs and code != cbs else ""
+                            unit_parts.append(f"{label}{suffix}")
+                    if not qudt_codes and not unit_info['cbs_units']:
+                        continue
+                if unit_parts:
+                    suffix_parts.append(f"Measure units: {', '.join(unit_parts)}")
 
             if suffix_parts:
                 body = f"{body} {'. '.join(suffix_parts)}."
@@ -529,7 +558,7 @@ class ColBERTTrainer(object):
 
         logger.info(f"Mined {len(new_triples)} hard negative triples and saved to {triples_path}")
 
-    def rebuild_collection(self, include_time_geo_dims: bool = False):
+    def rebuild_collection(self, include_time_geo_dims: bool = False, enrich_units: bool = False):
         """
             Rebuild the collection TSV and node_pid_map from the current state of the SPARQL graph.
             This can be used independently of training to update the collection when new tables or
@@ -557,7 +586,7 @@ class ColBERTTrainer(object):
 
         # Fetch all nodes from the graph and enrich
         nodes = self.get_graph_node_labels(include_time_geo_dims=include_time_geo_dims)
-        nodes = self.build_enriched_collection(nodes)
+        nodes = self.build_enriched_collection(nodes, enrich_units=enrich_units)
         nodes = {k: v for k, v in nodes.items() if self.mode == 'all' or v['type'] == self.mode}
 
         collection = pd.DataFrame.from_dict({

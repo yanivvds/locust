@@ -408,7 +408,19 @@ if __name__ == "__main__":
                         help="Cap evaluation at N questions for cost estimation. Omit for full run.")
     args, unknown = parser.parse_known_args()
 
-    model_kwargs = {unknown[i].lstrip('-'): unknown[i + 1] for i in range(0, len(unknown), 2)}
+    model_kwargs = {}
+    i = 0
+    while i < len(unknown):
+        if unknown[i].startswith('--'):
+            key = unknown[i].lstrip('-')
+            if i + 1 < len(unknown) and not unknown[i + 1].startswith('-'):
+                model_kwargs[key] = unknown[i + 1]
+                i += 2
+            else:
+                model_kwargs[key] = True
+                i += 1
+        else:
+            i += 1  # skip spurious tokens (e.g. ' ' from shell backslash-space escaping)
     results = evaluate_query_generation(args.model_path, args.dataset_path, args.output_path,
                                         args.query_type, args.task,
                                         model_kwargs=model_kwargs,

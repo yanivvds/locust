@@ -29,7 +29,8 @@ class ColBERTRetriever(BaseRetriever):
             mode: Literal['all', 'table', 'node'] = 'table',
             nbits: int = 4,
             search_depth: int = 2_500,
-            override_index: bool = False):
+            override_index: bool = False,
+            collection_variant: str = None):
         """
             :param checkpoint: Directory containing model checkpoint. Can be:
                                - A directory name relative to {BASE_PATH} (e.g. 'my_model')
@@ -46,6 +47,7 @@ class ColBERTRetriever(BaseRetriever):
         super().__init__()
         self.checkpoint = checkpoint
         self.mode = mode
+        self.collection_variant = collection_variant
 
         # Explicit casts required when passed through model args in evaluation script
         self.nbits = int(nbits)
@@ -167,15 +169,17 @@ class ColBERTRetriever(BaseRetriever):
         model_path = self._resolve_checkpoint()
         experiment_name = self.checkpoint.replace('/', '_')
         data_dir = self._data_dir(self.checkpoint)
-        collection_path = f"{data_dir}/collection_{self.mode}.tsv"
-        node_pid_map_path = f"{data_dir}/collection_{self.mode}_node_pid_map.json"
+        variant_suffix = f"_{self.collection_variant}" if self.collection_variant else ""
+        mode_key = f"{self.mode}{variant_suffix}"
+        collection_path = f"{data_dir}/collection_{mode_key}.tsv"
+        node_pid_map_path = f"{data_dir}/collection_{mode_key}_node_pid_map.json"
 
         if not os.path.exists(collection_path):
             raise FileNotFoundError(f"A collection file must exist for indexing ColBERT! Missing {collection_path}")
         if not os.path.exists(node_pid_map_path):
             raise FileNotFoundError(f"A node-PID-mapping file must exist for running ColBERT! Missing {node_pid_map_path}")
 
-        index_dir = f"./experiments/{experiment_name}/indexes/{self.mode}.nbits={self.nbits}/centroids.pt"
+        index_dir = f"./experiments/{experiment_name}/indexes/{mode_key}.nbits={self.nbits}/centroids.pt"
         overwrite_index = 'reuse' if os.path.exists(index_dir) and not override_index else True
         with Run().context(RunConfig(nranks=1, experiment=experiment_name)):
             colbert_config = ColBERTConfig(nbits=self.nbits, root=".", index_bsize=32)
@@ -183,13 +187,13 @@ class ColBERTRetriever(BaseRetriever):
             if overwrite_index != 'reuse':
                 logger.info("Creating ColBERTv2 index...")
                 indexer = Indexer(checkpoint=model_path, config=colbert_config)
-                indexer.index(name=f"{self.mode}.nbits={self.nbits}",
+                indexer.index(name=f"{mode_key}.nbits={self.nbits}",
                               overwrite=overwrite_index,
                               collection=collection_path)
             else:
                 logger.info(f"Loading ColBERTv2 index from path {index_dir}...")
 
-            self.searcher = Searcher(index=f"{self.mode}.nbits={self.nbits}",
+            self.searcher = Searcher(index=f"{mode_key}.nbits={self.nbits}",
                                      checkpoint=model_path,
                                      collection=collection_path,
                                      config=colbert_config)
