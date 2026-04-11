@@ -31,7 +31,7 @@ colbert.infra.launcher.setup_new_process = patched_setup_new_process
 
 import config
 from logs import logging
-from utils.global_functions import parse_for_table_id
+from evaluation.evaluate_table_retrieval import parse_for_table_id
 
 verify_ninja_availability()
 

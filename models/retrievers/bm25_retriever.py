@@ -100,15 +100,17 @@ class BM25Retriever(BaseRetriever):
             raise RuntimeError("No table index found.")
 
         # Get top N candidates for dimensions and measures
+        top_k_table_ids = {c['id'] for c in sorted(top_candidates, key=lambda x: x['score'], reverse=True)[:k]}
+
         for node_type in ['dimension', 'measure']:
             if node_type in self.indices and self.indices[node_type]:
                 scores = self.indices[node_type].get_scores(tokenized_query)
 
-                # Create a list of nodes and their scores corresponding with the top-N tables
+                # Create a list of nodes and their scores corresponding with the top-k tables by score
                 all_nodes_of_type = [
                     {'id': self.doc_ids_map[node_type][i], 'score': scores[i], 'type': node_type}
                     for i in range(len(scores))
-                    if self.doc_ids_map[node_type][i].split('#')[0] in [top_candidates[i]['id'] for i in range(k)]
+                    if self.doc_ids_map[node_type][i].split('#')[0] in top_k_table_ids
                 ]
 
                 all_nodes_of_type.sort(key=lambda x: x['score'], reverse=True)
@@ -144,9 +146,7 @@ class BM25Retriever(BaseRetriever):
         for table_id, data in table_candidates.items():
             dim_scores = sum(node["score"] for node in data["dimensions"].values())
             msr_scores = sum(node["score"] for node in data["measures"].values())
-            # Only add tables with at least one measure and table
-            combined_score = data[
-                "table_score"] if dim_scores + msr_scores > 0 else 0  # TODO: come up with a good metric
+            combined_score = data["table_score"] + dim_scores + msr_scores
             data['combined_score'] = combined_score
             sorted_tables.append((table_id, data))
 

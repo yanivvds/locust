@@ -383,6 +383,36 @@ class SparqlEngine(object):
         res = self.select(query)
         return {uri_to_code(d['dim']['value']): d['prefLabel']['value'] for d in res}
 
+    def get_dimension_codes(self, table: Table, dim_id: str) -> dict:
+        """
+            Return all (code → label) pairs for a specific schema dimension of a table.
+            Mirrors get_table_geo_dims() but filters by the dimension group URI instead of type,
+            making it usable for any non-geo, non-time dimension.
+
+            :param table: table to query
+            :param dim_id: dimension property ID, e.g. 'BestemmingEnSeizoen'
+            :returns: dict mapping code string to prefLabel, e.g. {'T001460': 'Totaal bestemmingen'}
+        """
+        dim_uri = f"{Dimension.rdf_ns}{dim_id}"
+        query = (f"""
+            PREFIX qb: <http://purl.org/linked-data/cube#>
+            PREFIX dct: <http://purl.org/dc/terms/>
+            PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+            SELECT DISTINCT ?id ?prefLabel WHERE {{
+                BIND (<{table.uri}> AS ?s) .
+                ?s qb:dimension ?dim .
+                ?dim dct:identifier ?id ;
+                     qb:concept ?concept ;
+                     skos:broader <{dim_uri}> .
+                ?concept dct:isPartOf ?s ;
+                         skos:prefLabel ?prefLabel .
+            }}
+        """)
+
+        res = self.select(query)
+        return {d['id']['value']: d['prefLabel']['value'] for d in res}
+
     def get_node_text_props(self, node: URIRef) -> dict:
         query = (f"""
             SELECT * WHERE {{ 

@@ -59,6 +59,9 @@ data/*
 odata_graph/graphs/*
 models/retrievers/colbert/experiments
 
+# experiment indexes
+experiments/*/indexes/
+
 # Misc. data files by extensions
 *.pk
 *.pkl

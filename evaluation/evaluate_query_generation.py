@@ -147,7 +147,8 @@ def evaluate_query_generation(
         output_path: str,
         query_type: QueryType,
         task: Literal['end-to-end', 'query-only'],
-        model_kwargs: Dict = None) -> Dict:
+        model_kwargs: Dict = None,
+        max_questions: int = None) -> Dict:
     """
         Evaluates query generation performance.
 
@@ -210,7 +211,12 @@ def evaluate_query_generation(
         } for q_type in QUESTION_TYPES
     }
 
+    questions_processed = 0
     for item in tqdm(dataset, desc=f"Evaluating query generation (Task: {task})", bar_format=config.TQDM_BAR_FMT):
+        if max_questions is not None and questions_processed >= max_questions:
+            total = questions_processed
+            break
+        questions_processed += 1
         question = item.question
         ground_truth_query = item[query_type]
         golden_tables = parse_for_table_id(ground_truth_query, query_type)
@@ -398,12 +404,15 @@ if __name__ == "__main__":
                         help="Path to save the generated queries to.")
     parser.add_argument("--results_path", type=str, default="evaluation/query_generation_results.json",
                         help="Path to where to save the results JSON file with the metrics.")
+    parser.add_argument("--max-questions", type=int, default=None,
+                        help="Cap evaluation at N questions for cost estimation. Omit for full run.")
     args, unknown = parser.parse_known_args()
 
     model_kwargs = {unknown[i].lstrip('-'): unknown[i + 1] for i in range(0, len(unknown), 2)}
     results = evaluate_query_generation(args.model_path, args.dataset_path, args.output_path,
                                         args.query_type, args.task,
-                                        model_kwargs=model_kwargs)
+                                        model_kwargs=model_kwargs,
+                                        max_questions=args.max_questions)
 
     os.makedirs(os.path.dirname(args.results_path), exist_ok=True)
     with open(args.results_path, "w") as f:
@@ -412,3 +421,17 @@ if __name__ == "__main__":
     print(f"Queries saved to {args.output_path}.")
     print(f"Results saved to {args.results_path}")
     print(json.dumps(results, indent=4))
+
+    if args.max_questions:
+        full_n = len(load_dataset(args.dataset_path))
+        scale = full_n / args.max_questions
+        est_input = results["avg_input_token_count"] * full_n
+        est_output = results["avg_output_token_count"] * full_n
+        # gpt-5-mini pricing: $0.25/1M input tokens, $2.00/1M output tokens
+        est_cost = (est_input / 1e6 * 0.25) + (est_output / 1e6 * 2.00)
+        print(f"\n--- Cost estimate for full {full_n} questions ---")
+        print(f"  Avg input tokens/question : {results['avg_input_token_count']:.0f}")
+        print(f"  Avg output tokens/question: {results['avg_output_token_count']:.0f}")
+        print(f"  Estimated total input     : {est_input:,.0f} tokens")
+        print(f"  Estimated total output    : {est_output:,.0f} tokens")
+        print(f"  Estimated cost (gpt-5-mini): ~${est_cost:.2f}")
