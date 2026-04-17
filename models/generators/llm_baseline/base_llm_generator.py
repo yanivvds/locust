@@ -1,3 +1,4 @@
+import json
 import os
 from abc import ABC
 from itertools import groupby
@@ -8,25 +9,36 @@ from typing import Tuple, Optional, List
 
 import config
 from models.generators.base_generator import BaseGenerator
-from models.generators.geo_dim_extractor import match_region
-from models.generators.time_dim_extractor import extract_tc
-from models.retrievers.colbert.colbert_retriever import ColBERTRetriever
+from models.retrievers.base_retriever import BaseRetriever
 from odata_graph import engine
 from odata_graph.sparql_controller import QUDT
 from s_expression import Table, uri_to_code
+from utils.custom_types import LLMResponse
 
 
 class BaseLLMGenerator(BaseGenerator, ABC):
-    """A baseline model for generating SQL queries using a LLM."""
-    retriever: ColBERTRetriever
+    """
+        A baseline model for generating SQL queries using a LLM.
 
-    @staticmethod
-    def _build_prompt(question: str, tables: dict, query_type: str = 'sql') -> Tuple[str, str]:
+        :param retriever: table/node retriever that is used for populating the prompt going out to the LLM
+        :param node_score_threshold: score threshold for node items in tables for adding to the prompt.
+                                     If the retriever does not return node scores, this value is ignored.
+                                     Set to 0 to add all nodes connected to a table in a prompt (might yield very large prompts!)
+    """
+    retriever: BaseRetriever
+    node_score_threshold: float = 0.1
+
+    def _build_prompt(self,
+                      question: str,
+                      tables: dict,
+                      query_type: str = 'sql',
+                      max_nodes_per_table: int = 500) -> Tuple[str, str]:
         """
             Builds a prompt for the LLM based on the question and retrieved tables.
 
             :param question: question string
             :param tables: dictionary of ranked tables and their nodes
+            :param max_nodes_per_table: maximum number of nodes to include per table
         """
         table_info = []
         for table_id, data in tables.items():
@@ -44,9 +56,6 @@ class BaseLLMGenerator(BaseGenerator, ABC):
                 table_graph.subjects(predicate=RDF.type, object=Literal("TimeDimension", datatype=XSD.string if config.LOCAL_GRAPH else None))
             } - dim_groups
             schema_dims = {uri_to_code(s) for s in table_graph.objects(predicate=QB.dimension)} - dim_groups - geo_dims - time_dims
-
-            geo_constraints = match_region(query=question, available_geo_constraints=geo_dims)
-            time_constraints = extract_tc(query=question, available_time_constraints=time_dims)
 
             units = dict(map(lambda x: (uri_to_code(x[0]), x[1].split('/')[-1]), table_graph.subject_objects(QUDT.unit)))
             concepts = set(map(lambda x: (x[1], x[0]), table_graph.subject_objects(QB.concept)))
@@ -71,12 +80,22 @@ class BaseLLMGenerator(BaseGenerator, ABC):
                               f"(label: \"{str(table_labels.pop())}\") "
                               f"(score: {data.get('score', '-')})")
 
-            nodes_info = []
+            # Build a mapping from dimension codes to their parent group via skos:broader
+            dim_to_group = {}
+            for child, parent in table_graph.subject_objects(SKOS.broader):
+                child_code = uri_to_code(child)
+                parent_code = uri_to_code(parent)
+                if parent_code in dim_groups:
+                    dim_to_group[child_code] = parent_code
+
+            # Build node entries, filtering out irrelevant dimensions
+            node_scores = data.get('nodes', {})
+            measures = []
+            group_entries = {}  # group_code -> (group_entry, [child_entries])
+            ungrouped = []
+
             for code, label in concept_labels.items():
                 node_code = uri_to_code(code)
-                # Skip time and geo dimensions which are not extracted from the question
-                if node_code in (geo_dims | time_dims) - (geo_constraints | time_constraints):
-                    continue
 
                 if node_code in dim_groups:
                     node_type = "DimensionGroup"
@@ -85,11 +104,59 @@ class BaseLLMGenerator(BaseGenerator, ABC):
                 else:
                     node_type = "Measure"
 
-                nodes_info.append(f"- {node_type}: {node_code} "
-                                  f"(label: \"{label}\") "
-                                  f"{' (unit: ' + units[node_code] + ')' if node_code in units else ''}")
-                if len(nodes_info) == 50:  # Don't make list too long
-                    break
+                score = node_scores.get(node_code, {}).get('score')
+                if node_scores and score and score < self.node_score_threshold:
+                    continue
+                entry = (node_code, node_type, label, score)
+
+                if node_type == "Measure":
+                    measures.append(entry)
+                elif node_type == "DimensionGroup":
+                    if node_code not in group_entries:
+                        group_entries[node_code] = (entry, [])
+                    else:
+                        group_entries[node_code] = (entry, group_entries[node_code][1])
+                elif node_code in dim_to_group:
+                    parent = dim_to_group[node_code]
+                    if parent not in group_entries:
+                        group_entries[parent] = (None, [])
+                    group_entries[parent][1].append(entry)
+                else:
+                    ungrouped.append(entry)
+
+            # Sort each category: scored first (highest score on top), then unscored
+            def _sort_key(e):
+                return (e[3] is not None, e[3] or 0)
+
+            measures.sort(key=_sort_key, reverse=True)
+            ungrouped.sort(key=_sort_key, reverse=True)
+
+            # Build ordered list: measures first, then groups with their children, then ungrouped
+            ordered_entries = list(measures)
+            # Sort groups by their best child score (or own score)
+            def _group_sort_key(item):
+                group_code, (group_entry, children) = item
+                scores = [c[3] for c in children if c[3] is not None]
+                if group_entry and group_entry[3] is not None:
+                    scores.append(group_entry[3])
+                return (len(scores) > 0, max(scores) if scores else 0)
+
+            for group_code, (group_entry, children) in sorted(group_entries.items(),
+                                                              key=_group_sort_key, reverse=True):
+                if group_entry:
+                    ordered_entries.append(group_entry)
+                children.sort(key=_sort_key, reverse=True)
+                ordered_entries.extend(children)
+
+            ordered_entries.extend(ungrouped)
+
+            nodes_info = []
+            for node_code, node_type, label, score in ordered_entries[:max_nodes_per_table]:
+                line = (f"- {node_type}: {node_code} "
+                        f"(label: \"{label}\")"
+                        f"{' (unit: ' + units[node_code] + ')' if node_code in units else ''}"
+                        f"{' (relevance: ' + f'{score:.4f}' + ')' if score is not None else ''}")
+                nodes_info.append(line)
 
             if nodes_info:
                 table_info.append("Nodes:")
@@ -110,19 +177,55 @@ class BaseLLMGenerator(BaseGenerator, ABC):
         return system_prompt, user_prompt
 
     def _call_llm(self, system_prompt: str, user_prompt: str) -> Tuple[str, Tuple[int, int]]:
-        """Calls the Azure ML endpoint and returns the generated SQL query."""
+        """Calls the LLM endpoint and returns the generated query."""
         raise NotImplementedError()
 
-    def generate_query(self, question: str, k: int = 5, golden_tables: Optional[List[str]] = None, query_type: str = 'sql') -> Tuple[str, Tuple[int, int]]:
-        """Generates a SQL query for the given question."""
-        if golden_tables is None:
+    def generate_query(
+        self,
+        question: str,
+        k: int = 5,
+        retrieved_tables: Optional[dict] = None,
+        query_type: str = 'sql',
+        remarks: Optional[List[Tuple[str, str]]] = None
+    ) -> LLMResponse:
+        """
+            Generates a query for the given question.
+
+            :param question: natural language question
+            :param k: number of tables to retrieve for the LLM to process
+            :param retrieved_tables: full retriever output dict with table scores and optional node scores.
+            :param query_type: type of query to generate (sexp or sql)
+            :param remarks: optional list of (previous_response_json, error_message) tuples from failed attempts,
+                            appended to the conversation so the model can correct itself.
+            :returns: tuple of (parsed JSON response dict, token counts).
+                      The dict has keys: query (str), status (OK|ALTERNATIVE|UNANSWERABLE), remarks (str).
+        """
+        if retrieved_tables is None:
             retrieved_tables = self.retriever.retrieve_tables(question, k=k)
         else:
-            retrieved_tables = {t: {} for t in golden_tables}
+            table_node_scores = self.retriever.retrieve_tables(question, k=max(k, 1_000))  # get scored nodes for golden tables
+            golden_tables = {}
+            for t in retrieved_tables.keys():
+                golden_tables[t] = table_node_scores.get(t, {})
+            retrieved_tables = golden_tables
 
         if not retrieved_tables:
-            return "", (0, 0)  # Cannot generate a query
+            return LLMResponse(query="", input_token_count=0, output_token_count=0)
 
         system_prompt, user_prompt = self._build_prompt(question, retrieved_tables, query_type=query_type)
-        sql_query, num_tokens = self._call_llm(system_prompt, user_prompt)
-        return sql_query, num_tokens
+        raw_response, num_tokens = self._call_llm(system_prompt, user_prompt)
+        parsed = self._parse_response(raw_response, num_tokens)
+        return parsed
+
+    @staticmethod
+    def _parse_response(raw: str, token_counts: Tuple[int, int]) -> LLMResponse:
+        """Parse the LLM's JSON response into a structured dict."""
+        try:
+            parsed = json.loads(raw)
+            return LLMResponse(
+                query=parsed.get("query", ""),
+                input_token_count=token_counts[0],
+                output_token_count=token_counts[1],
+            )
+        except (json.JSONDecodeError, AttributeError, ValueError, KeyError):
+            return LLMResponse(query="", input_token_count=0, output_token_count=0)

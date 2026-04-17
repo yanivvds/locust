@@ -17,7 +17,7 @@ from utils.custom_types import NonEmptyList, ComparisonOperator
 
 class Value(Expression):
     """
-        Basic value expression used for retrieving and filtering information from OData4
+        Basic value expression used for retrieving and filtering information from OData
         Syntax: (VALUE <table> (MSR (<code> ... <code>)) (DIM <dim> (<code> ... <code>)) (DIM ...))
 
         :param sexp: the parsed S-expression, of which the evaluation instantiates this object
@@ -93,9 +93,7 @@ class Value(Expression):
             db = DBExecutor(tables=[self.table], measures=self.measures, dims=self.dimensions,
                             operator_name=self._operator)
 
-            if odata4:
-                query = self.odata4_sql
-            elif simplified:
+            if simplified:
                 query = self.odata3_sql_simplified
             else:
                 query = self.odata3_sql
@@ -208,38 +206,6 @@ class Value(Expression):
         sql += where
         return sqlglot.parse_one(sql).sql(pretty=True)
 
-    @property
-    def odata4_sql(self):
-        """
-            === Example VALUE s-expression as SQL ===
-            SELECT *
-            FROM (
-                SELECT Measure, Value, BestemmingEnSeizoen, Perioden, Vakantiekenmerken
-                FROM '<parquet_file>'
-                WHERE Measure IN ('D004645')
-            )
-            PIVOT (
-                MAX(Value)
-                FOR BestemmingEnSeizoen IN ('T001047')
-                    Perioden IN ('2022JJ00', '2021JJ00')
-                    Vakantiekenmerken IN ('T001460')
-            );
-        """
-        sql = f"""
-            SELECT *
-            FROM (
-                SELECT Measure, Value, {', '.join(str(g) for g, _ in self.dimensions)}
-                FROM '{os.path.relpath(config.DB_ODATA4_FILES)}/{self.table}.parquet'
-                WHERE Measure IN ('{"', '".join({str(m) for m in self.measures})}')
-                {f"AND Value {self.measure_filter[1]} {self.measure_filter[2]}" if self.measure_filter else ''}
-            )
-            PIVOT (
-                MAX(Value)
-                FOR {'\n'.join('{} IN {}'.format(group, f"('{"', '".join({str(c) for c in codes})}')") 
-                               for group, codes in self.dimensions if len(codes) > 0)}
-            )
-        """
-        return sqlglot.parse_one(sql).sql(pretty=True)
 
 if __name__ == '__main__':
     from s_expression.parser import parse, eval

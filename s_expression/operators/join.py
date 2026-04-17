@@ -11,7 +11,7 @@ from typing import List, Tuple, Set, FrozenSet
 from odata_graph import engine
 from pipeline.db_executor import DBExecutor
 from pipeline.odata_executor import CodeLabelMapper
-from s_expression import Expression, ParsedExpression, Measure, Dimension
+from s_expression import Expression, ParsedExpression, Table, Measure, Dimension
 from s_expression.operators import Value, Sum, Avg, Min, Max
 from utils.custom_types import NonEmptyList
 
@@ -60,9 +60,7 @@ class Join(Expression):
                 dims |= sub_exp.dimensions
 
             db = DBExecutor(tables=tables, measures=measures, dims=dims, operator_name=self._operator)
-            if odata4:
-                query = self.odata4_sql
-            elif simplified:
+            if simplified:
                 query = self.odata3_sql_simplified
             else:
                 query = self.odata3_sql
@@ -102,7 +100,7 @@ class Join(Expression):
 
         return self, answer
 
-    def _get_sub_exp_filters(self) -> Tuple[List[Set[Measure]], List[Set[Tuple[Dimension, FrozenSet[Dimension]]]]]:
+    def _get_sub_exp_filters(self) -> Tuple[List[Value], Set[Table], Set[Measure], Set[Tuple[Dimension, FrozenSet[Dimension]]]]:
         """
             Helper function for getting all measures and dimensions from all
             inner VALUE expressions in this S-expression, regardless of their depth.
@@ -110,16 +108,18 @@ class Join(Expression):
             :returns: Tuple containing a list of inner VALUE expressions, set with tables,
                       set with measures and set with dimensions
         """
-        measures = []
-        dimensions = []
+        tables = set()
+        measures = set()
+        dimensions = set()
+        value_exps = []
         for sub_exp in self.sub_expressions:
-            sub_measures = set()
-            sub_dims = set()
             inner_expressions: List[Expression] = [sub_exp]
             for inner_exp in inner_expressions:
-                if isinstance(sub_exp, Value):
-                    sub_measures |= sub_exp.measures
-                    sub_dims |= sub_exp.dimensions
+                if isinstance(inner_exp, Value):
+                    tables |= {inner_exp.table}
+                    measures |= inner_exp.measures
+                    dimensions |= inner_exp.dimensions
+                    value_exps.append(inner_exp)
                     continue
 
                 if hasattr(inner_exp, 'sub_expressions'):
@@ -127,10 +127,7 @@ class Join(Expression):
                 else:
                     inner_expressions.append(inner_exp.sub_expression)
 
-            measures.append(sub_measures)
-            dimensions.append(sub_dims)
-
-        return measures, dimensions
+        return value_exps, tables, measures, dimensions
 
     @property
     def odata3_sql(self):
@@ -147,14 +144,7 @@ class Join(Expression):
             ON TableA.selector = TableB.selector;
         """
         inner_table_sqls = [sqlglot.parse_one(sub.odata3_sql) for sub in self.sub_expressions]
-        return self._build_sql(odata4=False, inner_table_sqls=inner_table_sqls)
 
-    @property
-    def odata4_sql(self):
-        inner_table_sqls = [sqlglot.parse_one(sub.odata4_sql) for sub in self.sub_expressions]
-        return self._build_sql(odata4=True, inner_table_sqls=inner_table_sqls)
-
-    def _build_sql(self, odata4: bool, inner_table_sqls: List[sqlglot.exp.Expression]):
         # Get measures to select per table
         measures = []
         for inner_sql in inner_table_sqls:
@@ -178,7 +168,7 @@ class Join(Expression):
                         inner_select = table.find(sqlglot.exp.Subquery).find(sqlglot.exp.Select)
                         inner_select.where(node.sql(), append=True, copy=False)
 
-            if len(table_fors) == 0 or (odata4 and not self.measure_selector):
+            if len(table_fors) == 0:
                 # Default to pivot on Measure if all table dimensions are used as join selectors
                 table_fors.append(sqlglot.parse_one(f"Measure IN ('{"', '".join(measures[i])}')"))
 
@@ -242,7 +232,8 @@ class Join(Expression):
         for inner_sql in inner_table_sqls:
             inner_sql.find(sqlglot.exp.Select).args['expressions'] = [sqlglot.exp.Star()]
 
-        measures_per_inner, dimensions_per_inner = self._get_sub_exp_filters()
+        measures_per_inner = [sub_exp.measures for sub_exp in self.sub_expressions]
+        dimensions_per_inner = [sub_exp.dimensions for sub_exp in self.sub_expressions]
 
         # Fill the SELECT and JOIN-ON statements with the proper columns
         select_cols = ""

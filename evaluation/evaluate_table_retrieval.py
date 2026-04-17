@@ -3,37 +3,16 @@ import json
 import numpy as np
 import os
 import pandas as pd
-import re
 from itertools import chain
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 from typing import get_args, List, Dict
+from time import perf_counter
 
 import config
 from models.retrievers.base_retriever import BaseRetriever
 from utils.custom_types import QueryType
-from utils.global_functions import load_dataset, load_model_from_path
-
-
-def parse_for_table_id(query: str, query_type: QueryType) -> List[str]:
-    """
-        Parses an S-expression or SQL query to find the table ID.
-        Sexp: The table ID is assumed to be the first argument of the VALUE operator.
-        SQL: The table ID is assumed to be part of the parquet file name in the FROM clause.
-
-        :param query: The S-expression/SQL query to parse
-        :param query_type: Type of query to parse (default: False = S-expression)
-        :returns: A list of table IDs found in the query
-    """
-    if query_type == 'sexp':
-        pattern = r"\(VALUE\s+([A-Z0-9]+)"
-    elif query_type in ['sql', 'simplified_sql']:
-        pattern = r"FROM\s+['\"](?:[^/]+/)*?([A-Z0-9]+)\.parquet['\"]"
-    else:
-        raise ValueError(f"Unknown query type: {query_type}")
-
-    table_matches = re.findall(pattern, query, re.IGNORECASE)
-    return table_matches
+from utils.global_functions import load_dataset, load_model_from_path, parse_for_table_id
 
 
 def evaluate_table_retrieval(
@@ -61,6 +40,7 @@ def evaluate_table_retrieval(
     acc_at_k = 0
     acc_until_k = np.zeros(k)
     total = len(dataset)
+    perf_time = []
 
     for item in tqdm(dataset, desc="Evaluating table retrieval", bar_format=config.TQDM_BAR_FMT):
         question = item.question
@@ -71,7 +51,9 @@ def evaluate_table_retrieval(
             total -= 1
             continue
 
+        s_t = perf_counter()
         predicted_tables = list(model.retrieve_tables(question, k=k).keys())
+        perf_time.append(perf_counter() - s_t)
 
         # Exact Match (EM)
         # Check if all the first N tables of the predicted tables match the number N tables in the ground truth
@@ -102,7 +84,9 @@ def evaluate_table_retrieval(
         "metrics": {
             "exact_match_accuracy": em_accuracy,
             f"accuracy_at_{k}": acc_at_k,
-            "accuracies_until_k": list(acc_until_k)
+            "accuracies_until_k": list(acc_until_k),
+            "mean_perf_time_in_seconds": float(np.mean(perf_time)),
+            "median_perf_time_in_seconds": float(np.median(perf_time)),
         },
         "total_questions": total,
     }
@@ -118,23 +102,27 @@ def plot_graph(json_files: List[str], k: int):
             if 'accuracies_until_k' not in results.get('metrics', {}):
                 continue
 
-            result_df[results['model_path'].split('/')[-1].replace('.py', '')] = results['metrics']['accuracies_until_k'][:k]
+            result_df[results['model_path'].split('/')[-1].replace('.py', '')] = pd.Series(results['metrics']['accuracies_until_k'][:k])
 
     # Generate graphs
+    result_df = result_df.reindex(sorted(result_df.columns), axis=1)
     range_x = len(result_df.index)
-    plt.figure()
+    x_axis = np.arange(1, range_x + 1, 1)
+    plt.figure(figsize=(10, 7))
     for func in result_df:
-        plt.plot(result_df.index, result_df[func], label=func)
+        plt.plot(x_axis, result_df[func], label=func)
 
     max_tables = len(os.listdir(config.DB_ODATA3_FILES))
-    plt.plot(range(range_x), np.linspace(0, 1, max_tables)[:range_x], 'k--', label='Random')
-    plt.xlim([0.0, range_x])
-    plt.ylim([0.0, 1.05])
-    plt.xlabel('Top K retrieved tables')
-    plt.ylabel('Accuracy')
+
+    plt.plot(x_axis, np.linspace(0, 1, max_tables)[:range_x], 'k--', label='Random')
+    plt.xlim([min(x_axis), max(x_axis)])
+    plt.ylim([0.0, 1.0])
+    plt.xlabel("Top K retrieved tables")
+    plt.ylabel("Accuracy")
     plt.title("accuracy@K for entity retrieval methods")
     plt.grid()
-    plt.legend()
+    plt.legend(bbox_to_anchor=(1.0, 1.0))
+    plt.tight_layout()
 
     path = f"{os.path.dirname(args.output_path)}/er_results.png"
     plt.savefig(path)

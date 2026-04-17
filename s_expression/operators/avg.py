@@ -22,7 +22,7 @@ class Avg(SimpleAggregator):
                  offline: bool = False,
                  verbose: bool = False) -> Tuple[Avg, pd.DataFrame]:
         if sql:
-            answer, code_labels = self._execute_sql(odata4=odata4, simplified=simplified)
+            answer, code_labels = self._execute_sql(simplified=simplified)
             self.mapper = code_labels
         else:
             measure_units = {}

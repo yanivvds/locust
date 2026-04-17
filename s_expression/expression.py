@@ -142,19 +142,13 @@ class Expression(ABC):
     @property
     @abstractmethod
     def odata3_sql(self) -> str:
-        """Parsable and executable OData3 (=default) SQL version of this expression."""
+        """Parsable and executable OData3 SQL version of this expression."""
         raise NotImplementedError()
 
     @property
     @abstractmethod
     def odata3_sql_simplified(self) -> str:
         """Simplified (non-pivoted) version of the OData3 SQL version of this expression."""
-        raise NotImplementedError()
-
-    @property
-    @abstractmethod
-    def odata4_sql(self) -> str:
-        """Parsable and executable OData4 SQL version of this expression."""
         raise NotImplementedError()
 
     def __str__(self) -> str:

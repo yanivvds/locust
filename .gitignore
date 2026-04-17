@@ -57,7 +57,8 @@ notebooks/*
 scripts/*
 data/*
 odata_graph/graphs/*
-models/retrievers/colbert/experiments
+evaluation/**/*.json*
+experiments/*
 
 # experiment indexes
 experiments/*/indexes/
@@ -74,6 +75,9 @@ experiments/*/indexes/
 *.h5
 *.zip
 *.png
+*.db
+*.parquet
+*.pdf
 
 # Specific exceptions
 !data/tests

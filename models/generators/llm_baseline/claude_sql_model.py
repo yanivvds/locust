@@ -1,3 +1,4 @@
+import re
 from anthropic import AnthropicFoundry, omit
 from typing import Tuple
 
@@ -35,7 +36,10 @@ class GPTBaselineSQLModel(BaseLLMGenerator):
 
             num_tokens = (response.usage.input_tokens, response.usage.output_tokens)
             response_data = response.content[0 if not self.reasoning else 1].text
-            response_data = response_data.replace('```sql\n', '').replace('\n```', '')
+            # Strip Markdown code fences (```json ... ``` or ``` ... ```)
+            response_data = re.sub(r'^```\w*\s*\n?', '', response_data.strip())
+            response_data = re.sub(r'\n?```\s*$', '', response_data)
+            response_data = response_data.strip()
             return response_data, num_tokens
         except Exception as e:
             print(f"An error occurred while calling the LLM: {e}")

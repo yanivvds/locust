@@ -42,12 +42,11 @@ class Prop(Expression):
                     break
                 sub_exp = sub_exp.sub_expression
 
-            if odata4:
-                query = self.odata4_sql
-            elif simplified:
+            if simplified:
                 query = self.odata3_sql_simplified
             else:
                 query = self.odata3_sql
+
             db = DBExecutor(tables=[sub_exp.table], measures=sub_exp.measures, dims=sub_exp.dimensions,
                             operator_name=self._operator)
             answer, code_labels, _ = db.query_db(query=query, simplified=simplified)
@@ -128,47 +127,6 @@ class Prop(Expression):
         return sqlglot.parse_one(sql).sql(pretty=True)
 
     @property
-    def odata4_sql(self):
-        """
-            === Example PROP s-expression as OData4 SQL ===
-            SELECT CONCAT_WS(', ', Measure, Marges, Vakantiekenmerken, BestemmingEnSeizoen) AS Dimension_Measure,
-                   SUM(Value) AS 'SUM[Perioden]',
-                   SUM(CASE WHEN Perioden IN ('2021JJ00') THEN Value ELSE 0 END) AS "2021JJ00",
-                   ROUND(
-                       SUM(CASE WHEN Perioden IN ('2021JJ00') THEN Value ELSE 0 END) * 100.0 / SUM(Value),
-                       2
-                   ) AS "%"
-            FROM '<parquet_file>'
-            WHERE Vakantiekenmerken IN ('T001460')
-                AND Marges IN ('MW00000')
-                AND BestemmingEnSeizoen IN ('L008691', 'L999996')
-                AND Perioden IN ('2022JJ00', '2021JJ00')
-                AND Measure IN ('D004645')
-            GROUP BY Dimension_Measure
-        """
-        # Get inner select from sub expression to fetch data to aggregate
-        sub_sql = sqlglot.parse_one(self.sub_expression.odata4_sql)
-        select = sub_sql.find(sqlglot.exp.Subquery).find(sqlglot.exp.Select)
-
-        # Copy existing PIVOT over from sub-expression
-        for_statements = {}
-        for node in sub_sql.find_all(sqlglot.exp.In):
-            for_statements |= dict([node.sql().split(' IN ')])
-
-        sql = f"""
-            SELECT CONCAT_WS(', ', {', '.join(set(for_statements.keys()) - {self.selector[0]})}) AS Dimension_Measure,
-                   SUM(Value) AS 'SUM[{self.selector[0]}]',
-                   SUM(CASE WHEN {self.selector[0]} IN ('{"', '".join({str(c) for c in self.selector[1]})}') THEN Value ELSE 0 END) AS '{"_".join(self.selector[1])}',
-                   ROUND(
-                       SUM(CASE WHEN {self.selector[0]} IN ('{"', '".join({str(c) for c in self.selector[1]})}') THEN Value ELSE 0 END) * 100.0 / SUM(Value), 2
-                   ) AS '%'
-            {select.find(sqlglot.exp.From).sql()}
-            WHERE {'\nAND '.join(f'{group} IN {codes}' for group, codes in for_statements.items())}
-            GROUP BY Dimension_Measure;
-        """
-        return sqlglot.parse_one(sql).sql(pretty=True)
-
-    @property
     def odata3_sql_simplified(self):
         """There is no simplified version for the PROP type query. Defaults to the OData3 SQL implementation"""
         return self.odata3_sql
@@ -191,4 +149,4 @@ if __name__ == '__main__':
             (DIM Perioden (2007JJ00 2016JJ00 2008JJ00 2013JJ00))
         )
     )
-    """), sql=True, odata4=False, verbose=True)
+    """), sql=True, verbose=True)

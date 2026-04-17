@@ -68,6 +68,26 @@ def get_orderby_components(expression: sqlglot.exp.Expression) -> Set[Tuple]:
     return components
 
 
+SINGLE_ROW_EQUIVALENT_AGGS = {'sum', 'avg', 'min', 'max'}
+def _pivot_groups_are_singletons(pivot: sqlglot.exp.Pivot) -> bool:
+    """
+        True when each PIVOT group can contain at most one source row:
+        every dimension in the `FOR … IN (…)` clause has exactly one
+        literal value. In the CBS OData3 layout (one row per dimension tuple)
+        this guarantees single-row groups, so SUM/AVG/MIN/MAX all coincide.
+    """
+    fields = pivot.args.get("fields", [])
+    if not fields:
+        return False
+    for field in fields:
+        if not isinstance(field, sqlglot.exp.In):
+            return False
+        n_literals = sum(1 for v in field.expressions if isinstance(v, sqlglot.exp.Literal))
+        if n_literals != 1:
+            return False
+    return True
+
+
 def get_pivot_components(expression: sqlglot.exp.Expression) -> Set[Tuple]:
     """Extracts components from the PIVOT clause."""
     components = set()
@@ -77,6 +97,12 @@ def get_pivot_components(expression: sqlglot.exp.Expression) -> Set[Tuple]:
 
     agg_func = pivot.expressions[0]
     agg_name = str(agg_func.key).lower()
+
+    # Treat equivalent aggregations as a canonical 'identity' operator
+    # whenever each PIVOT group provably contains at most one row.
+    if agg_name in SINGLE_ROW_EQUIVALENT_AGGS and _pivot_groups_are_singletons(pivot):
+        agg_name = "identity"
+
     if not isinstance(agg_func.this, sqlglot.exp.Column):
         agg_col = agg_func.this
     else:

@@ -19,6 +19,7 @@ from typing import Dict, List
 
 import config
 from models.retrievers.base_retriever import BaseRetriever
+from models.retrievers.colbert.colbert_retriever import ColBERTRetriever
 from odata_graph import engine
 
 NODE_LABEL_BASE_PATH = f"{config.PATH_DIR_DATA}/bm25_retriever/bm25_{config.GRAPH_DB_REPO}_node_labels{{}}.json"
@@ -35,10 +36,11 @@ class BM25Retriever(BaseRetriever):
     def __init__(self):
         nltk.download('stopwords')
         nltk.download('punkt')
+        nltk.download('punkt_tab')
 
         super().__init__()
 
-        graph_nodes = get_graph_node_labels(preprocess_text=True, include_time_geo_dims=False)
+        graph_nodes = get_graph_node_labels(include_time_geo_dims=False)
         self.index_nodes(graph_nodes)
 
     def index_nodes(self, nodes: Dict[str, Dict[str, str]]):
@@ -88,89 +90,26 @@ class BM25Retriever(BaseRetriever):
         processed_query = process_text(question)
         tokenized_query = processed_query.split()
 
-        top_candidates = []
-
+        scored_candidates = {}
         # Add all tables with a score > 0 to the candidate pool
-        if 'table' in self.indices and self.indices['table']:
-            scores = self.indices['table'].get_scores(tokenized_query)
-            for i, score in enumerate(scores):
-                if score > 0:
-                    top_candidates.append({'id': self.doc_ids_map['table'][i], 'score': score, 'type': 'table'})
-        else:
-            raise RuntimeError("No table index found.")
-
-        # Get top N candidates for dimensions and measures
-        top_k_table_ids = {c['id'] for c in sorted(top_candidates, key=lambda x: x['score'], reverse=True)[:k]}
-
-        for node_type in ['dimension', 'measure']:
+        for node_type in ['table', 'dimension', 'measure']:
             if node_type in self.indices and self.indices[node_type]:
                 scores = self.indices[node_type].get_scores(tokenized_query)
-
-                # Create a list of nodes and their scores corresponding with the top-k tables by score
-                all_nodes_of_type = [
-                    {'id': self.doc_ids_map[node_type][i], 'score': scores[i], 'type': node_type}
-                    for i in range(len(scores))
-                    if self.doc_ids_map[node_type][i].split('#')[0] in top_k_table_ids
-                ]
-
-                all_nodes_of_type.sort(key=lambda x: x['score'], reverse=True)
-                top_candidates.extend(all_nodes_of_type[:candidate_pool_size])
+                for i, score in enumerate(scores):
+                    if score > 0:
+                        scored_candidates[self.doc_ids_map[node_type][i]] = {'score': score}
             else:
                 raise RuntimeError(f"No {node_type} index found.")
 
-        # Group nodes by table and store their scores
-        table_candidates = {}
-        for node in top_candidates:
-            node_id = node['id']
-            score = node['score']
-            node_type = node['type']
-
-            if node_type == 'table':
-                table_id = node_id
-            else:  # dimension or measure
-                table_id, child_id = node_id.split('#', 1)
-
-            if table_id not in table_candidates:
-                # Initialize with dimensions and measures keys
-                table_candidates[table_id] = {"table_score": 0.0, "dimensions": {}, "measures": {}}
-
-            if node_type == 'table':
-                table_candidates[table_id]["table_score"] = score
-            elif node_type == 'dimension':
-                table_candidates[table_id]["dimensions"][child_id] = {"score": score}
-            elif node_type == 'measure':
-                table_candidates[table_id]["measures"][child_id] = {"score": score}
-
         # Calculate combined table scores and format for sorting
-        sorted_tables = []
-        for table_id, data in table_candidates.items():
-            dim_scores = sum(node["score"] for node in data["dimensions"].values())
-            msr_scores = sum(node["score"] for node in data["measures"].values())
-            combined_score = data["table_score"] + dim_scores + msr_scores
-            data['combined_score'] = combined_score
-            sorted_tables.append((table_id, data))
-
-        # Sort tables by the new combined score in descending order
-        sorted_tables.sort(key=lambda item: item[1]["combined_score"], reverse=True)
-
-        # Format the final output structure
-        final_results = OrderedDict()
-        for table_id, data in sorted_tables[:k]:
-            # Sort child nodes by score for cleaner output
-            sorted_dims = sorted(data["dimensions"].items(), key=lambda item: item[1]["score"], reverse=True)
-            sorted_msrs = sorted(data["measures"].items(), key=lambda item: item[1]["score"], reverse=True)
-
-            final_results[table_id] = {
-                "score": data["combined_score"],
-                "dimensions": OrderedDict([(node_id, node_data) for node_id, node_data in sorted_dims]),
-                "measures": OrderedDict([(node_id, node_data) for node_id, node_data in sorted_msrs])
-            }
-
-        return final_results
+        sorted_tables = ColBERTRetriever.aggregate_table_node_scores(scored_candidates)
+        return OrderedDict(itertools.islice(sorted_tables.items(), k))
 
 
-def get_graph_node_labels(include_time_geo_dims: bool = False, preprocess_text: bool = True) -> Dict[str, Dict[str, str]]:
-    """Return a dictionary with all the textual elements for every table and measure/dimension in the graph."""
+def get_graph_node_labels(include_time_geo_dims: bool = False) -> Dict[str, Dict[str, str]]:
+    """
+        Return a dictionary with all the textual elements for every table and measure/dimension in the graph.
+    """
     node_labels_path = NODE_LABEL_BASE_PATH.format('_including_time_geo' if include_time_geo_dims else '')
     if os.path.isfile(node_labels_path):
         print(f"Loading node labels from {node_labels_path}")
@@ -181,6 +120,7 @@ def get_graph_node_labels(include_time_geo_dims: bool = False, preprocess_text: 
     tables = {}
     nodes = {}
 
+    # Fetch all tables in the graph, including entries containing title and descriptions from the tables
     table_query = ("""
         PREFIX dcat: <http://www.w3.org/ns/dcat#>
         PREFIX dct: <http://purl.org/dc/terms/>
@@ -200,16 +140,16 @@ def get_graph_node_labels(include_time_geo_dims: bool = False, preprocess_text: 
         raise RuntimeError(f"Failed to fetch table IDs: {e}")
 
     for table, table_props in tqdm(table_it, total=len(set(map(itemgetter(0), props))),
-                                   desc="Indexing graph nodes", bar_format=config.TQDM_BAR_FMT):
+                                   desc="Fetching graph nodes for all tables", bar_format=config.TQDM_BAR_FMT):
         val = ' '.join(f"{prop[1].strip()}{'' if prop[1][-1] == '.' else '.'}" for prop in table_props)
-        tables[table] = {'body': process_text(val) if preprocess_text else val, 'type': 'table'}
+        tables[table] = {'body': val, 'type': 'table'}
 
         # Get all measures and dimensions for a table
         query = (f"""
             PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
             PREFIX dct: <http://purl.org/dc/terms/>
             PREFIX qb: <http://purl.org/linked-data/cube#>
-            
+
             SELECT ?node_id ?type ?label WHERE {{
                 ?table ?type ?node .
                 FILTER (?type = qb:measure || ?type = qb:dimension) .
@@ -243,10 +183,9 @@ def get_graph_node_labels(include_time_geo_dims: bool = False, preprocess_text: 
                 else:
                     raise ValueError(f"Unknown node type: {node_type}")
 
-                val = ' '.join(f"{prop[2].strip()}{'' if prop[2][-1] == '.' else '.'}" for prop in node_props)
+                val = ' '.join(f"{prop[2].strip()}{'' if not prop[2] or prop[2][-1] == '.' else '.'}" for prop in node_props)
                 # Because nodes can have different concepts per table, store them using unique identifiers per table
-                nodes[f"{table}#{node_id}"] = {'body': process_text(val) if preprocess_text else val,
-                                               'type': type_, 'table': table}
+                nodes[f"{table}#{node_id}"] = {'body': val, 'type': type_, 'table': table}
         except Exception as e:
             print(f"Failed to fetch table nodes: {e}")
 

@@ -43,3 +43,20 @@ class BaseModel(ABC):
     @abstractmethod
     def __init__(self):
         pass
+
+
+@dataclass
+class LLMResponse(object):
+    query: str
+    input_token_count: int
+    output_token_count: int
+
+    def to_dict(self):
+        return {
+            'query': self.query,
+            'input_token_count': self.input_token_count,
+            'output_token_count': self.output_token_count
+        }
+
+    def get(self, attr: str, default=None):
+        return getattr(self, attr, default)

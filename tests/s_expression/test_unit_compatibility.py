@@ -31,12 +31,7 @@ def test_unit_compatibility_sexp_offline():
 def test_unit_compatibility_odata3_sql():
     with pytest.raises(UnitCompatibilityError,
                        match="Trying to aggregate over measures with a different unit"):
-        eval(parse(FAIL_ON_UNITS_SEXP), sql=True, odata4=False)
-
-def test_unit_compatibility_odata4_sql():
-    with pytest.raises(UnitCompatibilityError,
-                       match="Trying to aggregate over measures with a different unit"):
-        eval(parse(FAIL_ON_UNITS_SEXP), sql=True, odata4=True)
+        eval(parse(FAIL_ON_UNITS_SEXP), sql=True)
 
 
 # == UNIT TESTS FOR AVG OVER DIMENSIONLESS UNITS  ==
@@ -65,13 +60,7 @@ def test_unit_dimensionless_sexp_offline():
 def test_unit_dimensionless_odata3_sql():
     with pytest.raises(UnitCompatibilityError,
                        match="Trying to aggregate over two or more measures with a dimensionless unit"):
-        eval(parse(FAIL_ON_DIMENSIONLESS_SEXP), sql=True, odata4=False)
-
-def test_unit_dimensionless_odata4_sql():
-    with pytest.raises(UnitCompatibilityError,
-                       match="Trying to aggregate over two or more measures with a dimensionless unit"):
-        eval(parse(FAIL_ON_DIMENSIONLESS_SEXP), sql=True, odata4=True)
-
+        eval(parse(FAIL_ON_DIMENSIONLESS_SEXP), sql=True)
 
 
 # == UNIT TESTS FOR SUM OVER DIFFERENT CONVERTION RATIOS  ==
@@ -90,9 +79,4 @@ FAIL_ON_CONVERSION_SEXP = """
 def test_conversion_compatibility_odata3_sql():
     with pytest.raises(UnitCompatibilityError,
                        match="Trying to aggregate over multiple measures with different conversion multipliers"):
-        eval(parse(FAIL_ON_CONVERSION_SEXP), sql=True, odata4=False)
-
-def test_conversion_compatibility_odata4_sql():
-    with pytest.raises(UnitCompatibilityError,
-                       match="Trying to aggregate over multiple measures with different conversion multipliers"):
-        eval(parse(FAIL_ON_CONVERSION_SEXP), sql=True, odata4=True)
+        eval(parse(FAIL_ON_CONVERSION_SEXP), sql=True)

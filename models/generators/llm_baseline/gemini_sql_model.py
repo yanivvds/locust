@@ -1,3 +1,4 @@
+import re
 from google import genai
 from google.genai import types
 from typing import Tuple
@@ -27,7 +28,9 @@ class GPTBaselineSQLModel(BaseLLMGenerator):
 
             num_tokens = (response.usage_metadata.prompt_token_count,
                           response.usage_metadata.candidates_token_count + response.usage_metadata.thoughts_token_count)
-            response_data = response.text.replace('```sql\n', '').replace('\n```', '')
+            response_data = re.sub(r'^```\w*\s*\n?', '', response.text.strip())
+            response_data = re.sub(r'\n?```\s*$', '', response_data)
+            response_data = response_data.strip()
             return response_data, num_tokens
         except Exception as e:
             print(f"An error occurred while calling the LLM: {e}")

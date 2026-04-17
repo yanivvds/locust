@@ -1,3 +1,4 @@
+import re
 from openai import AzureOpenAI, NOT_GIVEN
 from typing import Tuple
 
@@ -27,13 +28,15 @@ class GPTBaselineSQLModel(BaseLLMGenerator):
                     {"role": "user", "content": user_prompt}
                 ],
                 model=self.model_name,
-                max_completion_tokens=10000,
+                max_completion_tokens=20000,
                 reasoning_effort="high" if self.reasoning else NOT_GIVEN
             )
 
             num_tokens = (response.usage.prompt_tokens, response.usage.completion_tokens)
             response_data = response.choices[0].message.content
-            response_data = response_data.replace('```sql\n', '').replace('\n```', '')
+            response_data = re.sub(r'^```\w*\s*\n?', '', response_data.strip())
+            response_data = re.sub(r'\n?```\s*$', '', response_data)
+            response_data = response_data.strip()
             return response_data, num_tokens
         except Exception as e:
             print(f"An error occurred while calling the LLM: {e}")

@@ -14,8 +14,7 @@ from urllib.error import URLError
 from pathlib import Path
 from typing import List, Any, Callable, Union
 
-from utils.custom_types import QAPair, BaseModel
-
+from utils.custom_types import QAPair, BaseModel, QueryType
 
 TRUSTED_SOURCES = ['localhost', 'cbs.nl', 'cbscms9', 'rivm.nl', 'politie.nl', 'grensdata.eu', 'volkstellingen.nl']
 
@@ -98,3 +97,24 @@ def load_model_from_path(model_path: str, **kwargs) -> Any:
             return obj(**kwargs)
 
     raise TypeError(f"Could not find a class inheriting from BaseModel in {model_path}")
+
+
+def parse_for_table_id(query: str, query_type: QueryType) -> List[str]:
+    """
+        Parses an S-expression or SQL query to find the table ID.
+        Sexp: The table ID is assumed to be the first argument of the VALUE operator.
+        SQL: The table ID is assumed to be part of the parquet file name in the FROM clause.
+
+        :param query: The S-expression/SQL query to parse
+        :param query_type: Type of query to parse (default: False = S-expression)
+        :returns: A list of table IDs found in the query
+    """
+    if query_type == 'sexp':
+        pattern = r"\(VALUE\s+([A-Z0-9]+)"
+    elif query_type in ['sql', 'simplified_sql']:
+        pattern = r"FROM\s+['\"](?:[^/]+/)*?([A-Z0-9]+)\.parquet['\"]"
+    else:
+        raise ValueError(f"Unknown query type: {query_type}")
+
+    table_matches = re.findall(pattern, query, re.IGNORECASE)
+    return table_matches

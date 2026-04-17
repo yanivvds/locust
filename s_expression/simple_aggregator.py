@@ -76,19 +76,16 @@ class SimpleAggregator(Expression, ABC):
 
         return value_exps, tables, measures, dimensions
 
-    def _execute_sql(self, odata4: bool = False, simplified: bool = False) -> Tuple[pd.DataFrame, CodeLabelMapper]:
+    def _execute_sql(self, simplified: bool = False) -> Tuple[pd.DataFrame, CodeLabelMapper]:
         """
             Execute and return the result from the SQL query corresponding with this S-expression.
 
-            :param odata4: bool to indicate to use the OData4 parquet files
             :param simplified: bool to indicate to use the simplified OData3 query
             :return: resulting DataFrame and code-to-label mapping dictionary
         """
         _, tables, measures, dimensions = self._get_sub_exp_filters()
 
-        if odata4:
-            query = self.odata4_sql
-        elif simplified:
+        if simplified:
             query = self.odata3_sql_simplified
         else:
             query = self.odata3_sql
@@ -119,35 +116,7 @@ class SimpleAggregator(Expression, ABC):
         """
         # Get inner select from sub expression to fetch data to aggregate
         sub_sql = sqlglot.parse_one(self.sub_expression.odata3_sql)
-        return self._build_sql(sub_sql)
 
-    @property
-    def odata4_sql(self):
-        """
-            === Example SUM s-expression as OData4 SQL ===
-            SELECT *
-            FROM (
-                SELECT Measure, Value, Perioden, BestemmingEnSeizoen, Marges, Vakantiekenmerken
-                FROM '<parquet_file>'
-                WHERE Measure IN ('D004645') AND Perioden IN ('2021JJ00', '2022JJ00')
-            )
-            PIVOT (
-                SUM(Value)
-                FOR BestemmingEnSeizoen IN ('L008691', 'L999996')
-                    Marges IN ('MW00000')
-                    Vakantiekenmerken IN ('T001460')
-                GROUP BY Measure
-            );
-        """
-        # Get inner select from sub expression to fetch data to aggregate
-        sub_sql = sqlglot.parse_one(self.sub_expression.odata4_sql)
-        return self._build_sql(sub_sql)
-
-    def _build_sql(self, sub_sql: sqlglot.exp.Expression) -> str:
-        """
-            Helper function for OData3 / OData4 SQL query building. In the current
-            configuration, only the VALUE expressions differ between the two versions.
-        """
         if not isinstance(self.sub_expression, Value):  # Aggregate over complex inner query (e.g. AGGJOIN)
             if len(self.selectors) == 0:
                 sql = f"""

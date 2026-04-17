@@ -22,7 +22,7 @@ class Sum(SimpleAggregator):
                  offline: bool = False,
                  verbose: bool = False) -> Tuple[Sum, pd.DataFrame]:
         if sql:
-             answer, code_labels = self._execute_sql(odata4=odata4, simplified=simplified)
+             answer, code_labels = self._execute_sql(simplified=simplified)
              self.mapper = code_labels
         else:
             measure_units = {}
@@ -87,7 +87,7 @@ if __name__ == '__main__':
     from s_expression.parser import parse, eval
 
     # Measure sum
-    eval(parse("""(SUM
+    s_expr, answer = eval(parse("""(SUM
         ()
         (VALUE 83180NED
             (MSR (D004585_1 D004560_1 D004550_1))

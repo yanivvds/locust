@@ -34,15 +34,12 @@ GRAPH_FILE = (os.getenv('GRAPH_FILE', f"{PATH_DIR_GRAPHS}/{GRAPH_DB_REPO}.trig")
 # DATABASE
 if IS_UNIT_TESTING:
     DB_ODATA3_FILES = f"{PATH_DIR_DATA}/tests/odata3"
-    DB_ODATA4_FILES = f"{PATH_DIR_DATA}/tests/odata4"
 elif LANGUAGE == 'nl':
     DB_ODATA3_FILES = f"{PATH_DIR_DATA}/nl/odata3"
-    DB_ODATA4_FILES = f"{PATH_DIR_DATA}/nl/odata4"
     TRAIN_QA_FILE = f"{PATH_DIR_DATA}/qa_pairs/nl/complex_nl_train.jsonl"
     TEST_QA_FILE = f"{PATH_DIR_DATA}/qa_pairs/nl/complex_nl_test.jsonl"
 elif LANGUAGE == 'en':
     DB_ODATA3_FILES = f"{PATH_DIR_DATA}/en/odata3"
-    DB_ODATA4_FILES = f"{PATH_DIR_DATA}/en/odata4"
     TRAIN_QA_FILE = f"{PATH_DIR_DATA}/qa_pairs/en/complex_en_train.jsonl"
     TEST_QA_FILE = f"{PATH_DIR_DATA}/qa_pairs/en/complex_en_test.jsonl"
 else:
@@ -53,12 +50,9 @@ AZURE_ENDPOINT = "<PLACEHOLDER>"
 AZURE_API_VERSION = "<PLACEHOLDER>"
 AZURE_KEY = "<PLACEHOLDER>"
 
-_graph_file_line = f"GRAPH_FILE: {GRAPH_FILE}\n" if LOCAL_GRAPH else ""
-logger.info(f"Running script with the following configuration:\n"
-            f"LANGUAGE: {LANGUAGE}\n"
-            f"LOCAL_GRAPH: {LOCAL_GRAPH}\n"
-            f"{_graph_file_line}"
-            f"GRAPH_DB_HOST: {GRAPH_DB_HOST}\n"
-            f"GRAPH_DB_REPO: {GRAPH_DB_REPO}\n"
-            f"DB_ODATA3_FILES: {DB_ODATA3_FILES}\n"
-            f"DB_ODATA4_FILES: {DB_ODATA4_FILES}")
+logger.info("\n=== Running script with the following configuration ===" +
+            f"\n\tLANGUAGE: {LANGUAGE}" +
+            f"\n\tLOCAL_GRAPH: {LOCAL_GRAPH}" +
+            (f"\n\tGRAPH_FILE: {GRAPH_FILE}" if LOCAL_GRAPH else '') +
+            f"\n\tGRAPH_DB_HOST: {GRAPH_DB_HOST}" +
+            f"\n\tGRAPH_DB_REPO: {GRAPH_DB_REPO}")

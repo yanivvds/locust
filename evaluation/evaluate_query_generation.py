@@ -10,22 +10,20 @@ from tqdm import tqdm
 from typing import get_args, Tuple, Dict, Union, Literal, Optional
 
 import config
-from evaluation.component_match_metric import calculate_component_matching
-from evaluation.record_accuracy_metric import record_accuracy
-from evaluation.evaluate_table_retrieval import parse_for_table_id
-from evaluation.selection_metrics import get_selection_metrics
+from evaluation.metrics import (calculate_component_matching, lenient_execution_accuracy,
+                                numeric_recall, record_accuracy, get_selection_metrics)
 from models.generators.base_generator import BaseGenerator
 from pipeline.db_executor import DBExecutor
 from s_expression import Table, Expression
 from s_expression.parser import parse, eval
 from utils.answer_comparator import is_equal_frame
-from utils.custom_types import QueryType, UnitCompatibilityError, FormatWarning
-from utils.global_functions import load_dataset, load_model_from_path
+from utils.custom_types import QueryType, UnitCompatibilityError, FormatWarning, LLMResponse
+from utils.global_functions import load_dataset, load_model_from_path, parse_for_table_id
 
 if config.LANGUAGE == 'en':
     TEST_TABLES_PER_THEME = {
         'Education': ['84312ENG', '84732ENG', '81850ENG', '80393eng', '80509eng', '03753eng', '37931eng', '81491ENG', '80006eng'],
-        'Energy': ['81154eng', '85799ENG', '81528ENG', '81528ENG', '83376ENG', '83374ENG', '82117ENG', '82538ENG', '82538ENG', '84918ENG', '84714ENG', '85899ENG', '82610ENG', '84917ENG', '85666ENG', '85666ENG', '85592ENG', '80416ENG', '81567ENG', '82374ENG', '82375ENG', '82369ENG', '82371ENG', '83406ENG', '80101eng', '82379ENG', '71456eng', '70789eng', '71457eng', '83109ENG', '7516eng', '70802eng', '84672ENG', '37621eng', '83325ENG', '80099eng', '00377eng', '71840eng', '72002eng', '37281eng', '70846eng', '80324eng', '83141ENG', '81163eng', '00372eng', '83403ENG', '80100eng', '37215eng', '81606ENG'],
+        'Energy': ['81154eng', '85799ENG', '81528ENG', '83376ENG', '83374ENG', '82117ENG', '82538ENG', '84918ENG', '84714ENG', '85899ENG', '82610ENG', '84917ENG', '85666ENG', '85592ENG', '80416ENG', '81567ENG', '82374ENG', '82375ENG', '82369ENG', '82371ENG', '83406ENG', '80101eng', '82379ENG', '71456eng', '70789eng', '71457eng', '83109ENG', '7516eng', '70802eng', '84672ENG', '37621eng', '83325ENG', '80099eng', '00377eng', '71840eng', '72002eng', '37281eng', '70846eng', '80324eng', '83141ENG', '81163eng', '00372eng', '83403ENG', '80100eng', '37215eng', '81606ENG'],
         'International trade': ['82659ENG', '82658ENG', '82616ENG'],
         'Manufacturing': ['7425eng', '81156eng', '81234eng', '85209ENG', '85806ENG', '85798ENG', '85770ENG', '83935ENG', '85771ENG', '83936ENG', '80274eng', '71835eng', '81238eng', '7055eng', '80092eng', '83838ENG', '81810ENG', '81984ENG', '81166eng', '81159eng', '83876ENG', '82444ENG', '37991eng', '37350ENG', '70696eng'],
         'Nature and environment': ['86242ENG', '86053ENG', '7477eng', '80408ENG', '82504ENG', '72002eng', '80370eng', '81010eng', '80447eng', '70946eng', '70947eng', '37221eng', '80448eng', '84735ENG', '83390ENG', '7063eng', '7467eng', '80138eng', '37687eng'],
@@ -33,11 +31,11 @@ if config.LANGUAGE == 'en':
     }
 else:
     TEST_TABLES_PER_THEME = {
-        'Energie': ['81156ned', '81154ned', '85799NED', '82538NED', '85677NED', '85677NED', '85337NED', '85080NED', '85080NED', '84983NED', '84983NED', '84949NED', '84949NED', '84950NED', '84950NED', '86159NED', '86159NED', '85999NED', '85999NED', '85697NED', '85697NED', '85359NED', '85359NED', '85126NED', '85126NED', '84837NED', '84837NED', '84585NED', '84585NED', '84314NED', '84314NED', '83800NED', '83800NED', '83568NED', '83568NED', '83187NED', '83187NED', '83022NED', '83022NED', '83023NED', '83023NED', '83025NED', '83025NED', '83026NED', '83026NED', '81528NED', '85666NED', '85666NED', '85592NED', '85592NED', '80416ned', '80416ned', '84991NED', '84991NED', '81567NED', '81567NED', '85004NED', '70960ned', '86044NED', '85775NED', '85447NED', '85010NED', '84772NED', '84517NED', '84131NED', '85005NED', '85005NED', '82003NED', '70897NED', '81309NED', '81309NED', '37359', '37359', '81163ned', '70662ned', '71840ned', '70663ned', '70780ned', '72002ned', '70914ned', '70914ned', '84672NED', '84672NED', '7520', '7520', '7522', '7522', '37333', '37237', '37215', '7521', '7521', '7310SLEN', '07144', '07145', '37291', '37291', '7444', '83878NED', '83882NED', '7443', '37207', '7448', '82374NED', '7442', '7445', '82375NED', '7514', '7447', '7447', '82369NED', '7523', '82371NED', '7525', '7524', '7454', '70135ned', '80382ned', '80382ned', '83406NED', '80101ned', '82379NED', '70789ned', '83109NED', '7516', '71457ned', '71456ned', '82380NED', '70802ned', '84783NED', '84783NED', '84518NED', '84518NED', '84130NED', '84130NED', '70949ned', '71458ned', '37880klb', '71556ned'],
-        'Industrie': ['81234ned', '85209NED', '80728ned', '81156ned', '85798NED', '7425zuiv', '85806NED', '85363NED', '83115NED', '85770NED', '83935NED', '85771NED', '83936NED', '81238ned', '81238ned', '71835ned', '80324ned', '37215', '7055', '37759', '70661NED', '70035NED', '81166ned', '71847ned', '70036NED', '81984NED', '80273ned', '83876NED', '83838NED', '81810NED', '37350', '37991pvr', '80111ned', '37154', '37569', '37971lix', '82113NED', '81460NED', '81975NED', '81974NED', '71933ned', '70753ned', '71250NED', '70037PRC'],
+        'Energie': ['81156ned', '81154ned', '85799NED', '82538NED', '85677NED', '85337NED', '85080NED','84983NED', '84949NED', '84950NED', '86159NED', '85999NED', '85697NED', '85359NED', '85126NED', '84837NED', '84585NED', '84314NED', '83800NED', '83568NED', '83187NED', '83022NED', '83023NED', '83025NED', '83026NED', '81528NED', '85666NED', '85592NED', '80416ned', '84991NED', '81567NED', '85004NED', '70960ned', '86044NED', '85775NED', '85447NED', '85010NED', '84772NED', '84517NED', '84131NED', '85005NED', '82003NED', '70897NED', '81309NED', '37359', '81163ned', '70662ned', '71840ned', '70663ned', '70780ned', '72002ned', '70914ned', '84672NED', '7520', '7522', '37333', '37237', '37215', '7521', '7310SLEN', '07144', '07145', '37291', '7444', '83878NED', '83882NED', '7443', '37207', '7448', '82374NED', '7442', '7445', '82375NED', '7514', '7447', '82369NED', '7523', '82371NED', '7525', '7524', '7454', '70135ned', '80382ned', '83406NED', '80101ned', '82379NED', '70789ned', '83109NED', '7516', '71457ned', '71456ned', '82380NED', '70802ned', '84783NED', '84518NED', '84130NED', '70949ned', '71458ned', '37880klb', '71556ned'],
+        'Industrie': ['81234ned', '85209NED', '80728ned', '81156ned', '85798NED', '7425zuiv', '85806NED', '85363NED', '83115NED', '85770NED', '83935NED', '85771NED', '83936NED', '81238ned', '71835ned', '80324ned', '37215', '7055', '37759', '70661NED', '70035NED', '81166ned', '71847ned', '70036NED', '81984NED', '80273ned', '83876NED', '83838NED', '81810NED', '37350', '37991pvr', '80111ned', '37154', '37569', '37971lix', '82113NED', '81460NED', '81975NED', '81974NED', '71933ned', '70753ned', '71250NED', '70037PRC'],
         'Internationale handel': ['82659NED', '82658NED'],
-        'Natuur en milieu': ['37687wat', '70695NED', '80182ned', '7219WEER', '37368', '7041BBOD', '7041BBOD'],
-        'Onderwijs': ['86223NED', '86087NED', '84973NED', '83861NED', '84732NED', '84312NED', '85356NED', '85353NED', '86052NED', '85740NED', '85372NED', '85051NED', '84773NED', '84947NED', '85702NED', '85702NED', '85525NED', '85525NED', '85701NED', '85701NED', '85489NED', '85489NED', '85490NED', '85490NED', '71478ned', '71478ned', '84780NED', '84274NED', '85907NED', '83966NED', '80393ned', '80509ned', '85453NED', '85313NED', '84337NED', '85834NED', '80384ned', '37220', '03753', '71517ned', '70896ned', '71562ned', '83873NED', '85511NED', '85820NED', '85214NED', '84972NED', '84696NED', '84455NED', '83969NED', '83663NED', '82859NED', '82252NED', '71822ned', '71822ned', '71229ned', '71042ned', '71042ned', '80171ned', '80171ned', '71043NED', '71043NED', '71890ned', '71890ned', '70637ned', '81869NED', '84311NED', '7523', '71796ned', '71825ned', '80468ned', '80284ned', '71493ned', '71493ned', '70134ned', '71450ned', '71450ned', '83295NED', '83295NED', '83296NED', '83296NED', '7265ONDW', '7265ONDW', '71294ned', '83393NED', '81788NED', '37846sol', '37746sol', '71202ned', '71247ned', '71199ned', '71073ned', '71074ned', '71201ned', '71200ned', '71054ned', '70962ned', '71172ned', '71113ned', '83894NED', '83893NED', '37379ou', '71535ned', '70901ned', '70901ned', '70222ned', '70222ned', '81491ned', '70903ned', '70902ned', '70902ned', '80197ned', '82299NED', '82298NED', '85184NED', '82816NED', '82275NED', '83324NED', '82123NED', '83613NED', '70762ned', '70761ned', '81473NED', '70630ned', '37182'],
+        'Natuur en milieu': ['37687wat', '70695NED', '80182ned', '7219WEER', '37368', '7041BBOD'],
+        'Onderwijs': ['86223NED', '86087NED', '84973NED', '83861NED', '84732NED', '84312NED', '85356NED', '85353NED', '86052NED', '85740NED', '85372NED', '85051NED', '84773NED', '84947NED', '85702NED', '85525NED', '85701NED', '85489NED', '85490NED', '71478ned', '84780NED', '84274NED', '85907NED', '83966NED', '80393ned', '80509ned', '85453NED', '85313NED', '84337NED', '85834NED', '80384ned', '37220', '03753', '71517ned', '70896ned', '71562ned', '83873NED', '85511NED', '85820NED', '85214NED', '84972NED', '84696NED', '84455NED', '83969NED', '83663NED', '82859NED', '82252NED', '71822ned', '71229ned', '71042ned', '80171ned', '71043NED', '71890ned', '70637ned', '81869NED', '84311NED', '7523', '71796ned', '71825ned', '80468ned', '80284ned', '71493ned', '70134ned', '71450ned', '83295NED', '83296NED', '7265ONDW', '71294ned', '83393NED', '81788NED', '37846sol', '37746sol', '71202ned', '71247ned', '71199ned', '71073ned', '71074ned', '71201ned', '71200ned', '71054ned', '70962ned', '71172ned', '71113ned', '83894NED', '83893NED', '37379ou', '71535ned', '70901ned', '70222ned', '81491ned', '70903ned', '70902ned', '80197ned', '82299NED', '82298NED', '85184NED', '82816NED', '82275NED', '83324NED', '82123NED', '83613NED', '70762ned', '70761ned', '81473NED', '70630ned', '37182'],
         'Veiligheid en recht': ['82558NED', '82557NED', '82559NED', '37900']
     }
 
@@ -179,9 +177,13 @@ def evaluate_query_generation(
     output_token_count = 0
     exact_match = 0
     rec_accuracy = 0
-    execution_accuracy = 0
+    num_recall = 0
+    execution_accuracy = {"strict": 0, "lenient": 0}
     component_scores = {'select_f1': 0.0, 'where_f1': 0.0, 'groupby_f1': 0.0, 'orderby_f1': 0.0, 'pivot_f1': 0.0}
-    selection_scores = {'measure_f1': 0.0, 'dimension_f1': 0.0, 'observation_f1': 0.0}
+    selection_scores = {
+        "lenient": {'measure_f1': 0.0, 'dimension_f1': 0.0, 'observation_f1': 0.0},
+        "strict": {'measure_f1': 0.0, 'dimension_f1': 0.0, 'observation_f1': 0.0}
+    }
     error_scores = {
         'syntax_error': {
             'by_type': {q_type: 0 for q_type in QUESTION_TYPES},
@@ -206,8 +208,12 @@ def evaluate_query_generation(
             "count": 0,
             "exact_match": 0,
             "record_accuracy": 0,
-            "execution_accuracy": 0,
-            "selection_scores": {'measure_f1': 0.0, 'dimension_f1': 0.0, 'observation_f1': 0.0}
+            "numeric_recall": 0,
+            "execution_accuracy": {"strict": 0, "lenient": 0},
+            "selection_scores": {
+                "lenient": {'measure_f1': 0.0, 'dimension_f1': 0.0, 'observation_f1': 0.0},
+                "strict": {'measure_f1': 0.0, 'dimension_f1': 0.0, 'observation_f1': 0.0}
+            }
         } for q_type in QUESTION_TYPES
     }
 
@@ -219,23 +225,32 @@ def evaluate_query_generation(
         questions_processed += 1
         question = item.question
         ground_truth_query = item[query_type]
-        golden_tables = parse_for_table_id(ground_truth_query, query_type)
+        golden_tables = {t_id: {} for t_id in parse_for_table_id(ground_truth_query, query_type)}
 
+        response = None
         if question in generated_answers:
-            predicted_query = generated_answers[question]
-        else:
-            predicted_query, tokens = model.generate_query(question, golden_tables=golden_tables if task == 'query-only' else None, query_type=query_type)
+            response = LLMResponse(**generated_answers[question])
+            if response.query == "":
+                response = None
 
-            if not predicted_query:
-                total -= 1
-                continue
+        if response is None:
+            response = model.generate_query(
+                question,
+                retrieved_tables=golden_tables if task == 'query-only' else None,
+                query_type=query_type
+            )
 
-            input_token_count += tokens[0]
-            output_token_count += tokens[1]
-
-            generated_answers[question] = predicted_query
+            generated_answers[question] = response.to_dict()
             with open(output_path, "w") as f:
                 json.dump(generated_answers, f, indent=4)
+
+        predicted_query = response.query
+        input_token_count += response.input_token_count
+        output_token_count += response.output_token_count
+
+        if not predicted_query:
+            total -= 1
+            continue
 
         # Determine question type from s-expression
         q_type = get_question_type(item.sexp, query_type='sexp')
@@ -259,7 +274,9 @@ def evaluate_query_generation(
 
         syntax_error = False
         rec_acc_reward = 0
+        num_recall_reward = 0
         exec_acc_reward = 0
+        lenient_exec_reward = 0
         try:
             # Check for query validity before execution
             if query_type == 'sexp':
@@ -285,10 +302,16 @@ def evaluate_query_generation(
             # Record Accuracy
             rec_acc_reward = record_accuracy(ground_truth_result, predicted_result)
 
+            # Numeric Recall
+            num_recall_reward = numeric_recall(ground_truth_result, predicted_result)
+
             # Execution Accuracy
             # Checking frame equality clogs the system memory for enormous tables. Trust me, the EX is 0 if you return more than 1 000 rows
             if len(predicted_result) < 1000 and is_equal_frame(ground_truth_result, predicted_result):
                 exec_acc_reward = 1
+
+            if len(predicted_result) < 1000:
+                lenient_exec_reward = lenient_execution_accuracy(ground_truth_result, predicted_result)
         except UnitCompatibilityError:
             # Units are not compatible
             error_scores['unit_compatability_errors'] += 1
@@ -310,8 +333,14 @@ def evaluate_query_generation(
         rec_accuracy += rec_acc_reward
         metrics_by_type[q_type]['record_accuracy'] += rec_acc_reward
 
-        execution_accuracy += exec_acc_reward
-        metrics_by_type[q_type]['execution_accuracy'] += exec_acc_reward
+        num_recall += num_recall_reward
+        metrics_by_type[q_type]['numeric_recall'] += num_recall_reward
+
+        execution_accuracy['strict'] += exec_acc_reward
+        metrics_by_type[q_type]['execution_accuracy']['strict'] += exec_acc_reward
+
+        execution_accuracy['lenient'] += lenient_exec_reward
+        metrics_by_type[q_type]['execution_accuracy']['lenient'] += lenient_exec_reward
 
         # Component Matching (SQL only)
         if query_type in ['sql', 'simplified_sql']:
@@ -319,11 +348,14 @@ def evaluate_query_generation(
             for key, value in comp_scores.items():
                 component_scores[key] += value
 
-        # Selection-based F1 scores
+        # Selection-based F1 scores (lenient: always calculated, strict: zero on syntax error)
         sel_scores, sel_errors = get_selection_metrics(predicted_query, ground_truth_query, query_type)
         for key, value in sel_scores.items():
-            selection_scores[key] += value
-            metrics_by_type[q_type]["selection_scores"][key] += value
+            selection_scores['lenient'][key] += value
+            metrics_by_type[q_type]['selection_scores']['lenient'][key] += value
+            if not syntax_error:
+                selection_scores['strict'][key] += value
+                metrics_by_type[q_type]['selection_scores']['strict'][key] += value
 
         error_scores['extra_measures'] += 1 if sel_errors['extra_measures'] > 0 else 0
         error_scores['missing_measures'] += 1 if sel_errors['missing_measures'] > 0 else 0
@@ -336,7 +368,7 @@ def evaluate_query_generation(
             if set(golden_tables) != set(predicted_tables):
                 error_scores['table_mismatch'] += 1
 
-            if query_type in ['sql', 'simplified_sql'] and 'PIVOT' not in predicted_query:
+            if query_type in ['sql', 'simplified_sql'] and 'PIVOT' in ground_truth_query and 'PIVOT' not in predicted_query:
                 error_scores['missing_pivot'] += 1
 
             # Determine if the model attempted to answer the questions using the correct 'type' of query
@@ -349,8 +381,15 @@ def evaluate_query_generation(
     avg_output_token_count = output_token_count / total if total > 0 else 0
     em_accuracy = exact_match / total if total > 0 else 0
     rec_accuracy = (rec_accuracy / total) if total > 0 else 0
-    ex_accuracy = (execution_accuracy / total) if total > 0 else 0
-    avg_selection_scores = {key: value / total for key, value in selection_scores.items()}
+    num_recall_accuracy = (num_recall / total) if total > 0 else 0
+    ex_accuracy = {
+        "strict": (execution_accuracy['strict'] / total) if total > 0 else 0,
+        "lenient": (execution_accuracy['lenient'] / total) if total > 0 else 0,
+    }
+    avg_selection_scores = {
+        "strict": {key: value / total for key, value in selection_scores['strict'].items()},
+        "lenient": {key: value / total for key, value in selection_scores['lenient'].items()}
+    }
 
     # Calculate average scores for each question type
     avg_metrics_by_type = {}
@@ -360,8 +399,15 @@ def evaluate_query_generation(
             avg_metrics_by_type[q_type] = {
                 "exact_match_accuracy": metrics["exact_match"] / count,
                 "record_accuracy": metrics["record_accuracy"] / count,
-                "execution_accuracy": metrics["execution_accuracy"] / count,
-                "selection_metrics": {key: value / count for key, value in metrics["selection_scores"].items()},
+                "numeric_recall": metrics["numeric_recall"] / count,
+                "execution_accuracy": {
+                    "strict": metrics['execution_accuracy']['strict'] / count,
+                    "lenient": metrics['execution_accuracy']['lenient'] / count
+                },
+                "selection_metrics": {
+                    "lenient": {key: value / count for key, value in metrics['selection_scores']['lenient'].items()},
+                    "strict": {key: value / count for key, value in metrics['selection_scores']['strict'].items()}
+                },
                 "total_questions": count
             }
 
@@ -375,8 +421,9 @@ def evaluate_query_generation(
         "metrics": {
             "exact_match_accuracy": em_accuracy,
             "record_accuracy": rec_accuracy,
+            "numeric_recall": num_recall_accuracy,
             "execution_accuracy": ex_accuracy,
-            "selection_metrics": avg_selection_scores
+            "selection_metrics": avg_selection_scores,
         },
         "error_analysis": error_scores,
         "metrics_by_question_type": avg_metrics_by_type,

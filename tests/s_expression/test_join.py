@@ -43,7 +43,7 @@ JOIN_ON_DIM_ANSWER_DF_SQL = pd.DataFrame(
 
 @pytest.mark.skipif(config.ENV == 'devops', reason="Test for local use only")
 def test_join_on_dim_sexp():
-    """For this test an internet connection is required and the OData4 API must be live"""
+    """For this test an internet connection is required and the OData API must be live"""
     _, answer = eval(parse(JOIN_ON_DIM_SEXP))
     assert_frame_equal_unordered(answer, JOIN_ON_DIM_ANSWER_DF_SEXP)
 
@@ -62,11 +62,7 @@ def test_join_on_dim_sexp_offline():
     assert_frame_equal_unordered(answer, expected_df)
 
 def test_join_on_dim_odata3_sql():
-    _, answer = eval(parse(JOIN_ON_DIM_SEXP), sql=True, odata4=False)
-    assert_frame_equal_unordered(answer, JOIN_ON_DIM_ANSWER_DF_SQL)
-
-def test_join_on_dim_odata4_sql():
-    _, answer = eval(parse(JOIN_ON_DIM_SEXP), sql=True, odata4=True)
+    _, answer = eval(parse(JOIN_ON_DIM_SEXP), sql=True)
     assert_frame_equal_unordered(answer, JOIN_ON_DIM_ANSWER_DF_SQL)
 
 
@@ -104,7 +100,7 @@ JOIN_ON_MSR_ANSWER_DF_SQL = pd.DataFrame(
 
 @pytest.mark.skipif(config.ENV == 'devops', reason="Test for local use only")
 def test_join_on_msr_sexp():
-    """For this test an internet connection is required and the OData4 API must be live"""
+    """For this test an internet connection is required and the OData API must be live"""
     _, answer = eval(parse(JOIN_ON_MSR_SEXP))
     assert_frame_equal_unordered(answer, JOIN_ON_MSR_ANSWER_DF_SEXP)
 
@@ -113,9 +109,5 @@ def test_join_on_msr_sexp_offline():
     assert_frame_equal_unordered(answer, JOIN_ON_MSR_ANSWER_DF_SEXP)
 
 def test_join_on_msr_odata3_sql():
-    _, answer = eval(parse(JOIN_ON_MSR_SEXP), sql=True, odata4=False)
-    assert_frame_equal_unordered(answer, JOIN_ON_MSR_ANSWER_DF_SQL)
-
-def test_join_on_msr_odata4_sql():
-    _, answer = eval(parse(JOIN_ON_MSR_SEXP), sql=True, odata4=True)
+    _, answer = eval(parse(JOIN_ON_MSR_SEXP), sql=True)
     assert_frame_equal_unordered(answer, JOIN_ON_MSR_ANSWER_DF_SQL)

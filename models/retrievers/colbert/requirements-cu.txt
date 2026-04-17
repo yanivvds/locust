@@ -1,0 +1,22 @@
+# ColBERT retriever API dependencies
+# Install with: pip install -r models/retrievers/colbert/requirements.txt
+
+# Core
+numpy~=2.3.1
+pandas~=2.3.0
+tqdm~=4.67.1
+requests~=2.32.4
+beartype~=0.21.0
+
+# ColBERT + ML
+colbert-ai~=0.2.22
+sentence-transformers~=5.1.1
+faiss-gpu-cu12~=1.14.1.post1
+
+# Graphs (needed for rebuild endpoint)
+rdflib~=7.1.4
+SPARQLWrapper~=2.0.0
+oxrdflib~=0.4.0
+
+# Logging
+python-json-logger~=3.3.0

@@ -56,14 +56,14 @@ class DBExecutor(object):
                  simplified: bool = False,
                  friendly_labels: bool = True) -> Tuple[pd.DataFrame, CodeLabelMapper, float]:
         """
-            Retrieve values from OData4 and create a pivot table using table, measure and dimension selectors.
+            Retrieve values from OData parquet files and create a pivot table using table, measure and dimension selectors.
 
             :param query: SQL query to execute on DuckDB
             :param index_cols: the columns to use as the MultiIndex for the output pivot tables.
                                Defaults to ['Measure', 'Unit']
             :param simplified: if executing simplified queries, measure columns/pivots are not mandatory and
                                units will be ignored.
-            :param friendly_labels: map the OData4 codes in the output table to their friendly names.
+            :param friendly_labels: map the OData codes in the output table to their friendly names.
                                     Set to False when wanting to JOIN the pivot tables at a later stage.
             :returns: tuple containing (a DataFrame pivot table, mapper for codes to labels, SQL execution time)
         """

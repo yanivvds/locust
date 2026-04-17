@@ -1,11 +1,10 @@
 [SYSTEM]
 You are a helpful assistant that generates SQL queries.
 
-[USER]
 **Given a natural language question, generate an SQL query.**
 
 # INSTRUCTION
-Generate an SQL query that can answer the given question. ONLY generate the SQL query and nothing else.
+Generate an SQL query that can answer the given question. Answer ONLY with a JSON object, without any further text.
 
 You are provided with:
 - The natural language question
@@ -123,18 +122,32 @@ Nodes:
 
 - **Example question 1:** "What is the total financial asset value of mental health hospitals and social work for children in health care institutions in 2022?"
 - **EXAMPLE 1 ANSWER:**
-SELECT SIC2008, Periods, SUM(FinancialAssets_26) AS 'SUM' FROM "data/en/odata3/83652ENG.parquet" WHERE SIC2008 IN ('423100', '427700') AND Periods = '2022JJ00' GROUP BY SIC2008, Periods
+```json
+{
+    "query": "SELECT SIC2008, Periods, SUM(FinancialAssets_26) AS 'SUM' FROM \"data/en/odata3/83652ENG.parquet\" WHERE SIC2008 IN ('423100', '427700') AND Periods = '2022JJ00' GROUP BY SIC2008, Periods"
+}
+```
 
 - **Example question 2:** "What proportion of total operating expenses in 2017 was attributed to institutions providing services for people with disabilities, compared to 2016?"
 - **EXAMPLE 2 ANSWER:**
-SELECT CONCAT_WS(', ', Measure, SIC2008) AS Dimension_Measure, SUM(Value) AS \"SUM[Periods]\", SUM(CASE WHEN Periods IN ('2017JJ00') THEN Value ELSE 0 END) AS \"2017JJ00\", ROUND(SUM(CASE WHEN Periods IN ('2017JJ00') THEN Value ELSE 0 END) * 100.0 / SUM(Value), 2) AS \"%\" FROM ( SELECT Measure, Value, SIC2008, Periods FROM \"data/en/odata3/83652ENG.parquet\" UNPIVOT(Value FOR Measure IN (\"TotalOperatingCosts_10\"))) WHERE SIC2008 IN ('800029') AND Periods IN ('2017JJ00', '2016JJ00') GROUP BY Dimension_Measure
+```json
+{
+    "query": "SELECT CONCAT_WS(', ', Measure, SIC2008) AS Dimension_Measure, SUM(Value) AS \"SUM[Periods]\", SUM(CASE WHEN Periods IN ('2017JJ00') THEN Value ELSE 0 END) AS \"2017JJ00\", ROUND(SUM(CASE WHEN Periods IN ('2017JJ00') THEN Value ELSE 0 END) * 100.0 / SUM(Value), 2) AS \"%\" FROM ( SELECT Measure, Value, SIC2008, Periods FROM \"data/en/odata3/83652ENG.parquet\" UNPIVOT(Value FOR Measure IN (\"TotalOperatingCosts_10\"))) WHERE SIC2008 IN ('800029') AND Periods IN ('2017JJ00', '2016JJ00') GROUP BY Dimension_Measure"
+}
+```
 
-# INPUT
+[USER]
 You are provided with the following context for generating the SQL:
 - The question: "{question}"
 - Top retrieved tables:
 {table_info}
 
-Please generate a SQL query that answers the question. ONLY generate the SQL query and nothing else.
+# ANSWER FORMAT
+Your answer MUST always be valid JSON with exactly the following structure:
+```json
+{{
+    "query": "<the generated SQL query>"
+}}
+```
 
-**ANSWER:**
+Please generate a SQL query that answers the question. Answer ONLY with the JSON object, without any further text.

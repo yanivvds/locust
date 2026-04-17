@@ -1,11 +1,10 @@
 [SYSTEM]
 Je bent een behulpzame assistent die SQL query's genereert.
 
-[USER]
 **Genereer een SQL-query op basis van een vraag in natuurlijke taal.**
 
 # INSTRUCTIE
-Genereer een SQL-query die de gegeven vraag kan beantwoorden. Genereer ALLEEN de SQL-query en niets anders.
+Genereer een SQL-query die de gegeven vraag kan beantwoorden. Antwoord UITSLUITEND met een JSON-object, zonder verdere tekst.
 
 Je krijgt aangeleverd:
 - De vraag in natuurlijke taal
@@ -124,7 +123,11 @@ Nodes:
     - We willen deze vergelijking voor het jaar `2001` en voor `Uitkeringen in natura`, dus `Perioden` en `TransactiesEnSaldi` moeten worden gedraaid om kolommen te vormen.
     - De `GROUP BY` is op `Measure` omdat we de minimumwaarde voor de `Overheidsproductie en -consumptie` willen weten.
 - **VOORBEELD 1 ANTWOORD:**
-SELECT * FROM (SELECT Measure, Value, InstitutioneleSectoren, Perioden, TransactiesEnSaldi FROM "data/nl/odata3/84576NED.parquet" UNPIVOT(Value FOR Measure IN ('M006098')) WHERE InstitutioneleSectoren IN ('A028902', 'A044940')) PIVOT(MIN(Value) FOR Perioden IN ('2001JJ00') TransactiesEnSaldi IN ('A044478') GROUP BY Measure)
+```json
+{
+    "query": "SELECT * FROM (SELECT Measure, Value, InstitutioneleSectoren, Perioden, TransactiesEnSaldi FROM \"data/nl/odata3/84576NED.parquet\" UNPIVOT(Value FOR Measure IN ('M006098')) WHERE InstitutioneleSectoren IN ('A028902', 'A044940')) PIVOT(MIN(Value) FOR Perioden IN ('2001JJ00') TransactiesEnSaldi IN ('A044478') GROUP BY Measure)"
+}
+```
 
 - **Voorbeeldvraag 2:** "Wat was het aandeel van de 'Overheidsproductie en -consumptie' door de Rijksoverheid in 2002 ten opzichte van het totaal van Rijksoverheid en Waterschappen voor dat jaar?"
 - **Analyse**:
@@ -133,15 +136,24 @@ SELECT * FROM (SELECT Measure, Value, InstitutioneleSectoren, Perioden, Transact
     - Dit wordt bereikt met voorwaardelijke aggregatie (`SUM(CASE WHEN ...)`).
     - De output moet de totale som, de gedeeltelijke som voor de Rijksoverheid, en het berekende percentage tonen.
 - **VOORBEELD 2 ANTWOORD:**
-SELECT CONCAT_WS(', ', Measure, Perioden) AS Dimension_Measure, SUM(Value) AS "SUM[InstitutioneleSectoren]", SUM(CASE WHEN InstitutioneleSectoren IN ('A044940') THEN Value ELSE 0 END) AS "A044940", ROUND(SUM(CASE WHEN InstitutioneleSectoren IN ('A044940') THEN Value ELSE 0 END) * 100.0 / SUM(Value), 2) AS "%" FROM ( SELECT Measure, Value, InstitutioneleSectoren, Perioden FROM "data/nl/odata3/84576NED.parquet" UNPIVOT(Value FOR Measure IN ("M006098"))) WHERE Perioden IN ('2002JJ00') AND InstitutioneleSectoren IN ('A044940', 'A028902') GROUP BY Dimension_Measure
+```json
+{
+    "query": "SELECT CONCAT_WS(', ', Measure, Perioden) AS Dimension_Measure, SUM(Value) AS \"SUM[InstitutioneleSectoren]\", SUM(CASE WHEN InstitutioneleSectoren IN ('A044940') THEN Value ELSE 0 END) AS \"A044940\", ROUND(SUM(CASE WHEN InstitutioneleSectoren IN ('A044940') THEN Value ELSE 0 END) * 100.0 / SUM(Value), 2) AS \"%\" FROM ( SELECT Measure, Value, InstitutioneleSectoren, Perioden FROM \"data/nl/odata3/84576NED.parquet\" UNPIVOT(Value FOR Measure IN (\"M006098\"))) WHERE Perioden IN ('2002JJ00') AND InstitutioneleSectoren IN ('A044940', 'A028902') GROUP BY Dimension_Measure"
+}
+```
 
-
-# INPUT
+[USER]
 Je krijgt de volgende context voor het genereren van de SQL:
 - De vraag: "{question}"
 - Top opgehaalde tabellen:
 {table_info}
 
-Genereer een SQL-query die de vraag beantwoordt. Genereer ALLEEN de SQL-query en niets anders.
+# ANTWOORDFORMAAT
+Je antwoord MOET altijd geldig JSON zijn met exact de volgende structuur:
+```json
+{{
+    "query": "<de gegenereerde SQL-query>"
+}}
+```
 
-**ANTWOORD:**
+Genereer een SQL-query die de vraag beantwoordt. Antwoord UITSLUITEND met het JSON-object, zonder verdere tekst.

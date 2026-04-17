@@ -452,16 +452,27 @@ class SparqlEngine(object):
                 result[node_id]['cbs_units'].append(cbs_val)
         return result
 
-    def get_node_text_props(self, node: URIRef) -> dict:
+    def get_table_titles(self, nodes: list) -> dict:
+        explode_tables = [n for n in nodes if n in Table.rdf_ns]
+        table_filter = ("?s IN (<" + '>, <'.join(explode_tables) + ">)") if explode_tables else ""
+
         query = (f"""
-            SELECT * WHERE {{ 
-                <{node}> ?p ?o .
-                FILTER (lang(?o) = "nl")
+            PREFIX dct: <http://purl.org/dc/terms/>
+            
+            SELECT DISTINCT ?id ?title ?description
+            WHERE {{ 
+                ?s dct:identifier ?id ;
+                   dct:title ?title ;
+                   dct:description ?description .
+                FILTER ({table_filter}) .
             }}
         """)
 
         res = self.select(query)
-        return {uri_to_code(d['p']['value']): d['o']['value'] for d in res}
+        return {uri_to_code(d['id']['value']): {
+            'title': d['title']['value'],
+            'description': d['description']['value']
+        } for d in res}
 
     def validate_msr_unit_compatibility(self, measures: Set[Measure], allow_different_scaling: bool = True) -> Dict[str, Dict[str, str]]:
         """

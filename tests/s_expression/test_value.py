@@ -29,7 +29,7 @@ MAPPER_RESULT = {'Vakantiekenmerken': 'Vakantiekenmerken', 'T001460': 'Totaal va
 
 @pytest.mark.skipif(config.ENV == 'devops', reason="Test for local use only")
 def test_value_sexp():
-    """For this test an internet connection is required and the OData4 API must be live"""
+    """For this test an internet connection is required and the OData API must be live"""
     sexp, answer = eval(parse(SEXP))
     assert_frame_equal_unordered(answer, ANSWER_DF)
     assert sexp.mapper == MAPPER_RESULT
@@ -40,12 +40,7 @@ def test_value_sexp_offline():
     assert sexp.mapper == MAPPER_RESULT
 
 def test_value_odata3_sql():
-    sexp, answer = eval(parse(SEXP), sql=True, odata4=False)
-    assert_frame_equal_unordered(answer, ANSWER_DF)
-    assert sexp.mapper == MAPPER_RESULT
-
-def test_value_odata4_sql():
-    sexp, answer = eval(parse(SEXP), sql=True, odata4=True)
+    sexp, answer = eval(parse(SEXP), sql=True)
     assert_frame_equal_unordered(answer, ANSWER_DF)
     assert sexp.mapper == MAPPER_RESULT
 

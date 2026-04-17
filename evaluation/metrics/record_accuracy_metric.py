@@ -8,7 +8,9 @@ def get_canonical_rows(df: pd.DataFrame, numeric_precision: int) -> list:
     for _, row in df.iterrows():
         values = []
         for v in row:
-            if isinstance(v, (int, float)):
+            if pd.isna(v):
+                continue
+            elif isinstance(v, (int, float)):
                 values.append(round(float(v), numeric_precision))
             else:
                 values.append(v)
@@ -50,4 +52,20 @@ def record_accuracy(ground_truth: pd.DataFrame, predicted: pd.DataFrame, numeric
             pred_counts[gt_row] -= 1
 
     num_total_records = len(ground_truth)
-    return num_correct_records / num_total_records
+    score = num_correct_records / num_total_records
+
+    # If the ground truth might be transposed (e.g. PIVOT vs UNPIVOT), check
+    # whether comparing against the transposed GT yields a better score.
+    if score < 1.0 and ground_truth.shape[0] != ground_truth.shape[1]:
+        gt_transposed = ground_truth.T.reset_index(drop=True)
+        gt_t_canonical = get_canonical_rows(gt_transposed, numeric_precision)
+        pred_counts_t = Counter(pred_canonical_rows)
+        correct_t = 0
+        for gt_row in gt_t_canonical:
+            if pred_counts_t[gt_row] > 0:
+                correct_t += 1
+                pred_counts_t[gt_row] -= 1
+        score_t = correct_t / len(gt_transposed)
+        score = max(score, score_t)
+
+    return score

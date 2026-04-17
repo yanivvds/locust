@@ -35,7 +35,7 @@ SUM_ON_MSR_ANSWER_DF_SQL.index.set_names('Unit', level=1, inplace=True)
 
 @pytest.mark.skipif(config.ENV == 'devops', reason="Test for local use only")
 def test_sum_on_msr_sexp():
-    """For this test an internet connection is required and the OData4 API must be live"""
+    """For this test an internet connection is required and the OData API must be live"""
     _, answer = eval(parse(SUM_ON_MSR_SEXP))
     assert_frame_equal_unordered(answer, SUM_ON_MSR_ANSWER_DF_SEXP)
 
@@ -44,11 +44,7 @@ def test_sum_on_msr_sexp_offline():
     assert_frame_equal_unordered(answer, SUM_ON_MSR_ANSWER_DF_SEXP)
 
 def test_sum_on_msr_odata3_sql():
-    _, answer = eval(parse(SUM_ON_MSR_SEXP), sql=True, odata4=False)
-    assert_frame_equal_unordered(answer, SUM_ON_MSR_ANSWER_DF_SQL)
-
-def test_sum_on_msr_odata4_sql():
-    _, answer = eval(parse(SUM_ON_MSR_SEXP), sql=True, odata4=True)
+    _, answer = eval(parse(SUM_ON_MSR_SEXP), sql=True)
     assert_frame_equal_unordered(answer, SUM_ON_MSR_ANSWER_DF_SQL)
 
 def test_sum_on_msr_simplified_sql():
@@ -86,7 +82,7 @@ SUM_ON_DIM_ANSWER_DF = pd.DataFrame(
 
 @pytest.mark.skipif(config.ENV == 'devops', reason="Test for local use only")
 def test_sum_on_dim_sexp():
-    """For this test an internet connection is required and the OData4 API must be live"""
+    """For this test an internet connection is required and the OData API must be live"""
     sum_cols = [('Vakantiebestemming: Nederland', 'Waarde', 'Totaal vakanties', 'SUM[\'Perioden\']'),
                 ('Vakantiebestemming: buitenland', 'Waarde', 'Totaal vakanties', 'SUM[\'Perioden\']')]
     df = SUM_ON_DIM_ANSWER_DF.copy()
@@ -103,11 +99,7 @@ def test_sum_on_dim_sexp_offline():
     assert_frame_equal_unordered(answer, df)
 
 def test_sum_on_dim_odata3_sql():
-    _, answer = eval(parse(SUM_ON_DIM_SEXP), sql=True, odata4=False)
-    assert_frame_equal_unordered(answer, SUM_ON_DIM_ANSWER_DF)
-
-def test_sum_on_dim_odata4_sql():
-    _, answer = eval(parse(SUM_ON_DIM_SEXP), sql=True, odata4=True)
+    _, answer = eval(parse(SUM_ON_DIM_SEXP), sql=True)
     assert_frame_equal_unordered(answer, SUM_ON_DIM_ANSWER_DF)
 
 def test_sum_on_dim_simplified_sql():
@@ -149,7 +141,7 @@ SUM_ON_JOIN_ANSWER_DF = pd.DataFrame(
 
 @pytest.mark.skipif(config.ENV == 'devops', reason="Test for local use only")
 def test_sum_on_join_sexp():
-    """For this test an internet connection is required and the OData4 API must be live"""
+    """For this test an internet connection is required and the OData API must be live"""
     _, answer = eval(parse(SUM_ON_JOIN_SEXP))
     df = SUM_ON_JOIN_ANSWER_DF.copy()
     df.index = pd.Index(["('Ladingtonkilometer', 'mln tonkm')"], name='Measure')
@@ -164,9 +156,5 @@ def test_sum_on_join_sexp_offline():
     assert_frame_equal_unordered(answer, df)
 
 def test_sum_on_join_odata3_sql():
-    _, answer = eval(parse(SUM_ON_JOIN_SEXP), sql=True, odata4=False)
-    assert_frame_equal_unordered(answer, SUM_ON_JOIN_ANSWER_DF)
-
-def test_sum_on_join_odata4_sql():
-    _, answer = eval(parse(SUM_ON_JOIN_SEXP), sql=True, odata4=True)
+    _, answer = eval(parse(SUM_ON_JOIN_SEXP), sql=True)
     assert_frame_equal_unordered(answer, SUM_ON_JOIN_ANSWER_DF)

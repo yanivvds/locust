@@ -49,10 +49,6 @@ def test_avg_odata3_sql():
     _, answer = eval(parse(AVG_SEXP), sql=True, odata4=False)
     assert_frame_equal_unordered(answer, AVG_ANSWER_DF_SQL)
 
-def test_avg_odata4_sql():
-    _, answer = eval(parse(AVG_SEXP), sql=True, odata4=True)
-    assert_frame_equal_unordered(answer, AVG_ANSWER_DF_SQL)
-
 def test_avg_simplify_sql():
     expected_answer = pd.DataFrame({'AVG': [31685., 35933.],
                                     'Bestemming en seizoen': ['Totaal vakanties'] * 2,

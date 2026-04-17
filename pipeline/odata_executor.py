@@ -27,7 +27,7 @@ COMPARISON_OPERATORS = {
 
 class OData3QueryBuilder(object):
     """
-        Helper class for generating a OData4 request/query to obtain
+        Helper class for generating a OData3 request/query to obtain
         observations of a table using given measure and dimension filters.
     """
     filters = False
@@ -39,9 +39,10 @@ class OData3QueryBuilder(object):
         self.query += f'''&$select=ID, {", ".join([str(s) for s in measures | dim_groups])}'''
 
     def add_dim_filter(self, group: Dimension, codes: Set[Dimension]):
-        self.query += '?$filter=' if not self.filters else ' and '
-        self.query += f'''((substringof({')) or (substringof('.join(["'" + str(dim) + "'," + str(group) for dim in codes])})))'''
-        self.filters = True
+        if len(codes) > 0:
+            self.query += '?$filter=' if not self.filters else ' and '
+            self.query += f'''((substringof({')) or (substringof('.join(["'" + str(dim) + "'," + str(group) for dim in codes])})))'''
+            self.filters = True
 
     def __str__(self):
         return self.__repr__()
@@ -66,10 +67,11 @@ class OData4QueryBuilder(object):
         self.filters = True
 
     def add_dim_filter(self, group: Dimension, codes: Set[Dimension]):
-        self.query += '?$filter=' if not self.filters else ' and '
-        # There's no distinction between codes of given dim group and all codes, but that shouldn't matter
-        self.query += f'''{group} in ('{"', '".join([str(dim) for dim in codes])}')'''
-        self.filters = True
+        if len(codes) > 0:
+            self.query += '?$filter=' if not self.filters else ' and '
+            # There's no distinction between codes of given dim group and all codes, but that shouldn't matter
+            self.query += f'''{group} in ('{"', '".join([str(dim) for dim in codes])}')'''
+            self.filters = True
 
     def __str__(self):
         return self.__repr__()
