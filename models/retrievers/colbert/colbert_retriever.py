@@ -1,19 +1,23 @@
 import argparse
 import json
 import os
-from colbert import Searcher, Indexer
-from colbert.infra import Run, RunConfig, ColBERTConfig
+import re
+
+# ColBERT JIT-compiles CUDA C++ extensions during indexing, which requires CUDA_HOME (nvcc +
+# headers). This check must happen before importing colbert or torch — once those are imported
+# CUDA is already initialised and setting CUDA_VISIBLE_DEVICES has no effect.
+# If CUDA_HOME is absent (e.g. Snellius with only the runtime loaded, not the full toolkit),
+# hide all GPUs now so ColBERT/Faiss/PyTorch fall back to CPU throughout.
+if not os.environ.get('CUDA_HOME') and 'CUDA_VISIBLE_DEVICES' not in os.environ:
+    os.environ['CUDA_VISIBLE_DEVICES'] = ''
+
 from collections import OrderedDict
 from itertools import islice
-from torch.utils.cpp_extension import verify_ninja_availability
 from typing import Literal, Dict
 
 import config
-import models.retrievers.colbert.patch_colbert  # noqa: F401 — applies monkey-patches on import
 from logs import logging
 from models.retrievers.base_retriever import BaseRetriever
-
-verify_ninja_availability()
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +26,6 @@ BASE_PATH = f"{config.PATH_DIR_DATA}/colbert_retriever"
 
 class ColBERTRetriever(BaseRetriever):
     pid_node_map: Dict[int, str]
-    searcher: Searcher
 
     def __init__(self,
             checkpoint: str,
@@ -30,7 +33,9 @@ class ColBERTRetriever(BaseRetriever):
             nbits: int = 4,
             search_depth: int = 2_500,
             override_index: bool = False,
-            collection_variant: str = None):
+            collection_variant: str = None,
+            kg_rerank: bool = False,
+            kg_rerank_alpha: float = 0.5):
         """
             :param checkpoint: Directory containing model checkpoint. Can be:
                                - A directory name relative to {BASE_PATH} (e.g. 'my_model')
@@ -43,6 +48,9 @@ class ColBERTRetriever(BaseRetriever):
             :param search_depth: depth of search space when calling the ColBERT model. Only relevant if mode is in
                                  'all' or 'nodes', otherwise set to k during retrieval.
             :param override_index: always creates a new index if true, regardless if an index already exists.
+            :param kg_rerank: if True, apply KG schema-overlap reranker after ColBERT ranking. Loads
+                              node label tokens from the cached node_labels JSON at init time.
+            :param kg_rerank_alpha: weight for the KG overlap bonus added to each ColBERT score.
         """
         super().__init__()
         self.checkpoint = checkpoint
@@ -52,9 +60,64 @@ class ColBERTRetriever(BaseRetriever):
         # Explicit casts required when passed through model args in evaluation script
         self.nbits = int(nbits)
         self.search_depth = int(search_depth)
+        self.kg_rerank = bool(kg_rerank)
+        self.kg_rerank_alpha = float(kg_rerank_alpha)
+        self.table_label_tokens: Dict[str, set] = {}
 
         if not config.IS_UNIT_TESTING:
             self.index_colbert(override_index)
+            if self.kg_rerank:
+                self._load_label_tokens()
+
+    @staticmethod
+    def _build_table_label_tokens(node_labels: dict) -> Dict[str, set]:
+        """
+        Build a per-table token set from measure/dimension node prefLabels (body as fallback).
+        Table-type entries are excluded — we want schema label vocabulary, not table descriptions.
+
+        :param node_labels: dict loaded from cbs-en_node_labels.json; keys are 'table_id' or
+                            'table_id#node_id'; values have 'type', 'prefLabel', 'body', 'table'.
+        :return: {table_id: set(lowercase_word_tokens)}
+        """
+        table_tokens: Dict[str, set] = {}
+        for key, data in node_labels.items():
+            if data.get('type') == 'table':
+                continue
+            table_id = data.get('table') or key.split('#')[0]
+            text = data.get('prefLabel') or data.get('body', '')
+            tokens = set(re.findall(r'\w+', text.lower()))
+            if table_id not in table_tokens:
+                table_tokens[table_id] = set()
+            table_tokens[table_id].update(tokens)
+        return table_tokens
+
+    @staticmethod
+    def _compute_kg_overlap(
+            query: str,
+            ranked_items: OrderedDict,
+            table_label_tokens: Dict[str, set],
+            alpha: float) -> OrderedDict:
+        """
+        Re-score and re-sort ranked_items by adding alpha * token_overlap to each table's score.
+        Uses 'combined_score' as the base if present (set by aggregate_table_node_scores in 'all'
+        mode), falling back to 'score' (the raw ColBERT score in table mode).
+
+        Each entry is copied before modification — the input dict is not mutated.
+
+        :param query: the natural language question
+        :param ranked_items: OrderedDict from retrieve_tables before final islice
+        :param table_label_tokens: per-table token sets from _build_table_label_tokens
+        :param alpha: weight for overlap bonus (0.0 = no reranking)
+        :return: re-sorted OrderedDict with 'combined_score' set on each entry
+        """
+        query_tokens = set(re.findall(r'\w+', query.lower()))
+        reranked = {}
+        for table_id, data in ranked_items.items():
+            label_tokens = table_label_tokens.get(table_id, set())
+            overlap = len(query_tokens & label_tokens) / max(len(query_tokens), 1)
+            base = data.get('combined_score', data.get('score', 0))
+            reranked[table_id] = dict(data) | {'combined_score': base + alpha * overlap}
+        return OrderedDict(sorted(reranked.items(), key=lambda x: x[1]['combined_score'], reverse=True))
 
     @staticmethod
     def aggregate_table_node_scores(
@@ -111,6 +174,9 @@ class ColBERTRetriever(BaseRetriever):
             'all' mode, also relevant nodes above a thresholded score for each table is returned,
             and the table score is a weighted aggregation of its own and node scores.
 
+            If kg_rerank is enabled, an additional KG schema-overlap bonus is applied after ColBERT
+            ranking and before the final top-k slice.
+
             :param query: the natural language question
             :param k: number of tables to return
             :return: ordered dictionary of tables and nodes
@@ -122,6 +188,9 @@ class ColBERTRetriever(BaseRetriever):
 
         if self.mode in ['all', 'nodes']:
             ranked_items = self.aggregate_table_node_scores(ranked_items)
+
+        if self.kg_rerank and self.table_label_tokens:
+            ranked_items = self._compute_kg_overlap(query, ranked_items, self.table_label_tokens, self.kg_rerank_alpha)
 
         return OrderedDict(islice(ranked_items.items(), k))
 
@@ -143,7 +212,7 @@ class ColBERTRetriever(BaseRetriever):
         # Relative local path under BASE_PATH
         local_path = f"{BASE_PATH}/{self.checkpoint}"
         if os.path.isdir(local_path):
-            return self.checkpoint
+            return local_path
 
         # Treat as HuggingFace repo ID
         logger.info(f"Checkpoint '{self.checkpoint}' not found locally, attempting HuggingFace download...")
@@ -157,6 +226,26 @@ class ColBERTRetriever(BaseRetriever):
         """Return the shared data directory for collection and mapping files."""
         return f"{BASE_PATH}/{checkpoint.replace('/', '_')}"
 
+    def _load_label_tokens(self):
+        """
+        Load the node_labels JSON cache and build per-table token sets for the KG overlap reranker.
+        If the cache is missing, disables kg_rerank with a warning rather than crashing — the
+        retriever still works, just without the reranker.
+        """
+        data_dir = self._data_dir(self.checkpoint)
+        labels_path = f"{data_dir}/{config.GRAPH_DB_REPO}_node_labels.json"
+        if not os.path.exists(labels_path):
+            logger.warning(
+                f"Node labels cache not found at {labels_path}; "
+                f"KG overlap reranker disabled. Run colbert_trainer.py --rebuild_collection first."
+            )
+            self.kg_rerank = False
+            return
+        with open(labels_path) as f:
+            node_labels = json.load(f)
+        self.table_label_tokens = self._build_table_label_tokens(node_labels)
+        logger.info(f"KG reranker loaded: {len(self.table_label_tokens)} tables, alpha={self.kg_rerank_alpha}")
+
     def index_colbert(self, override_index: bool = False):
         """
             Create a ColBERT index. Requires a collection_<mode>.tsv and node_pid_map.json file for
@@ -166,6 +255,14 @@ class ColBERTRetriever(BaseRetriever):
             Collection and node_pid_map files are read from the shared data directory
             ({BASE_PATH}/{checkpoint_name}/), decoupled from the model checkpoint itself.
         """
+        # Colbert-specific imports are deferred to here so the module can be imported (and its
+        # static methods used in tests) without requiring the colbert package to be installed.
+        import models.retrievers.colbert.patch_colbert  # noqa: F401 — applies monkey-patches on import
+        from colbert import Searcher, Indexer
+        from colbert.infra import Run, RunConfig, ColBERTConfig
+        from torch.utils.cpp_extension import verify_ninja_availability
+        verify_ninja_availability()
+
         model_path = self._resolve_checkpoint()
         experiment_name = self.checkpoint.replace('/', '_')
         data_dir = self._data_dir(self.checkpoint)
@@ -181,7 +278,13 @@ class ColBERTRetriever(BaseRetriever):
 
         index_dir = f"./experiments/{experiment_name}/indexes/{mode_key}.nbits={self.nbits}/centroids.pt"
         overwrite_index = 'reuse' if os.path.exists(index_dir) and not override_index else True
-        with Run().context(RunConfig(nranks=1, experiment=experiment_name)):
+        # ColBERT JIT-compiles CUDA C++ extensions during indexing, which requires CUDA_HOME
+        # (nvcc + headers). If only the CUDA runtime is present (no toolkit), hide the GPU so
+        # ColBERT falls back to CPU and skips the JIT compilation step entirely.
+        # Also use avoid_fork_if_possible=True so ColBERT runs in-process (single process)
+        # instead of spawning a subprocess — spawned subprocesses crash when CUDA_VISIBLE_DEVICES=''
+        # because they fail to initialise the distributed backend.
+        with Run().context(RunConfig(nranks=1, avoid_fork_if_possible=True, experiment=experiment_name)):
             colbert_config = ColBERTConfig(nbits=self.nbits, root=".", index_bsize=32)
 
             if overwrite_index != 'reuse':
@@ -212,10 +315,20 @@ if __name__ == "__main__":
                         help='(Sub)set of nodes to that model was trained on.')
     parser.add_argument('--nbits', type=int, choices=[1, 2, 4, 8], default=4,
                         help='Number of bits used in quantization per dimension for storing the index.')
+    parser.add_argument('--kg_rerank', action='store_true',
+                        help='Enable KG schema-overlap reranker post-retrieval.')
+    parser.add_argument('--kg_rerank_alpha', type=float, default=0.5,
+                        help='Weight for KG overlap bonus (default: 0.5).')
 
     args = parser.parse_args()
 
-    retriever = ColBERTRetriever(checkpoint=args.checkpoint, mode=args.mode, nbits=args.nbits)
+    retriever = ColBERTRetriever(
+        checkpoint=args.checkpoint,
+        mode=args.mode,
+        nbits=args.nbits,
+        kg_rerank=args.kg_rerank,
+        kg_rerank_alpha=args.kg_rerank_alpha,
+    )
 
     q = "How many people went on vacation to Germany in 2020?"
     top_tables = retriever.retrieve_tables(query=q, k=10)

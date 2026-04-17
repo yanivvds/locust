@@ -56,8 +56,10 @@ class SKOSCodeResolver:
         """
         Return schema dimension property IDs for a table via direct SPARQL SELECT.
 
-        Schema dims = qb:dimension nodes that are NOT individual codes (i.e. have no
-        skos:broader parent) and are NOT geo or time dimensions.
+        Schema dims = qb:dimension group nodes that are NOT individual codes
+        (i.e. have no skos:broader parent) and are NOT geo or time dimensions.
+        Geo/time dims are excluded because BaseLLMGenerator already resolves them
+        via match_region() / extract_tc() — injecting duplicate hints is noisy.
         Uses SELECT directly rather than parsing the CONSTRUCT graph, which avoids
         issues with Oxigraph returning empty CONSTRUCT results for some optional patterns.
         """
@@ -67,6 +69,8 @@ class SKOSCodeResolver:
             SELECT DISTINCT ?dim WHERE {{
                 <{table.uri}> qb:dimension ?dim .
                 FILTER NOT EXISTS {{ ?dim skos:broader ?any . }}
+                FILTER NOT EXISTS {{ ?code a 'GeoDimension' ; skos:broader ?dim . }}
+                FILTER NOT EXISTS {{ ?code a 'TimeDimension' ; skos:broader ?dim . }}
             }}
         """
         res = self.engine.select(query)
@@ -82,7 +86,7 @@ class SKOSCodeResolver:
         """
         labels = list(code_label_map.values())
         codes = list(code_label_map.keys())
-        result = process.extractOne(question, labels, scorer=fuzz.token_sort_ratio)
+        result = process.extractOne(question, labels, scorer=fuzz.partial_ratio)
         if result and result[1] >= self.threshold:
             return codes[result[2]]
         return None

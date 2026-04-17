@@ -29,14 +29,15 @@ class VLLMBaselineSQLModel(BaseLLMGenerator):
     """
 
     def __init__(self, model: str = 'Qwen/Qwen3.5-27B', base_url: str = 'http://localhost:8000/v1',
-                 checkpoint: str = None):
+                 checkpoint: str = None, max_tokens: int = 2048):
         super().__init__()
         if checkpoint:
             self.retriever = ColBERTRetriever(checkpoint=checkpoint, mode='table')
         else:
             self.retriever = KGEnrichedBM25Retriever()
         self.model_name = model
-        self.ml_client = OpenAI(api_key='vllm', base_url=base_url)
+        self.ml_client = OpenAI(api_key='vllm', base_url=base_url, timeout=120)
+        self.max_tokens = max_tokens
 
     def _call_llm(self, system_prompt: str, user_prompt: str) -> Tuple[str, Tuple[int, int]]:
         for attempt in range(5):
@@ -47,7 +48,7 @@ class VLLMBaselineSQLModel(BaseLLMGenerator):
                         {"role": "user", "content": user_prompt}
                     ],
                     model=self.model_name,
-                    max_tokens=2048,
+                    max_tokens=self.max_tokens,
                     extra_body={"chat_template_kwargs": {"enable_thinking": False}},
                 )
 

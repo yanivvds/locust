@@ -212,11 +212,12 @@ class ColBERTTrainer(object):
         table_query = ("""
             PREFIX dcat: <http://www.w3.org/ns/dcat#>
             PREFIX dct: <http://purl.org/dc/terms/>
+            PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 
             SELECT DISTINCT ?id ?label WHERE {{
                 ?s a dcat:Dataset .
                 ?s dct:identifier ?id .
-                OPTIONAL {{ ?s dct:title|dct:abstract|dct:description ?label }}
+                OPTIONAL {{ ?s dct:title|dct:abstract|dct:description|skos:altLabel ?label }}
             }}
         """)
 
@@ -238,7 +239,7 @@ class ColBERTTrainer(object):
                 PREFIX dct: <http://purl.org/dc/terms/>
                 PREFIX qb: <http://purl.org/linked-data/cube#>
 
-                SELECT ?node_id ?type ?label WHERE {{
+                SELECT ?node_id ?type ?prefLabel ?label WHERE {{
                     ?table ?type ?node .
                     FILTER (?type = qb:measure || ?type = qb:dimension) .
                     {'''
@@ -251,19 +252,34 @@ class ColBERTTrainer(object):
                     ?node qb:concept ?concept ;
                           dct:identifier ?node_id .
                     ?concept dct:isPartOf ?table .
-                    OPTIONAL {{ ?concept skos:prefLabel|skos:altLabel|skos:definition|dct:description|dct:subject ?label }}
+                    OPTIONAL {{ ?concept skos:prefLabel ?prefLabel }}
+                    OPTIONAL {{ ?concept skos:altLabel|skos:definition|dct:description|dct:subject ?label }}
                     FILTER (?table_id = "{table}")
                 }}
             """)
 
             try:
                 result = engine.select(query)
-                props = [(r['node_id']['value'], r['type']['value'], (r.get('label', False) or {'value': ''})['value'])
-                         for r in result]
-                node_it = itertools.groupby(props, itemgetter(0))
-                for node_id, node_props in node_it:
-                    node_props = list(node_props)
-                    node_type = node_props[0][1]
+                # Use a dict accumulator instead of groupby: SPARQL result ordering is not guaranteed,
+                # and separating ?prefLabel from ?label means a single node can span multiple rows.
+                rows_by_node = {}
+                for r in result:
+                    nid = r['node_id']['value']
+                    if nid not in rows_by_node:
+                        rows_by_node[nid] = {
+                            'type': r['type']['value'],
+                            'prefLabels': [],
+                            'labels': [],
+                        }
+                    pl = (r.get('prefLabel') or {}).get('value', '')
+                    if pl and pl not in rows_by_node[nid]['prefLabels']:
+                        rows_by_node[nid]['prefLabels'].append(pl)
+                    lbl = (r.get('label') or {}).get('value', '')
+                    if lbl and lbl not in rows_by_node[nid]['labels']:
+                        rows_by_node[nid]['labels'].append(lbl)
+
+                for node_id, data in rows_by_node.items():
+                    node_type = data['type']
                     if node_type == str(QB.measure):
                         type_ = 'measure'
                     elif node_type == str(QB.dimension):
@@ -271,9 +287,14 @@ class ColBERTTrainer(object):
                     else:
                         raise ValueError(f"Unknown node type: {node_type}")
 
-                    val = ' '.join(f"{prop[2].strip()}{'' if not prop[2] or prop[2][-1] == '.' else '.'}" for prop in node_props)
+                    all_labels = data['prefLabels'] + data['labels']
+                    val = ' '.join(
+                        f"{lbl.strip()}{'' if not lbl or lbl[-1] == '.' else '.'}"
+                        for lbl in all_labels if lbl
+                    )
+                    pref = next((pl for pl in data['prefLabels'] if pl), '')
                     # Because nodes can have different concepts per table, store them using unique identifiers per table
-                    nodes[f"{table}#{node_id}"] = {'body': val, 'type': type_, 'table': table}
+                    nodes[f"{table}#{node_id}"] = {'body': val, 'type': type_, 'table': table, 'prefLabel': pref}
             except Exception as e:
                 logger.error(f"Failed to fetch table nodes: {e}")
 
@@ -286,10 +307,29 @@ class ColBERTTrainer(object):
         return nodes
 
     @staticmethod
+    def _readable_node_label(node_key: str, pref_label: str) -> str:
+        """
+        Return a human-readable display label for a measure node key.
+        Preference order:
+          1. skos:prefLabel from the KG (if non-empty)
+          2. CamelCase splitting of node_key with numeric suffix stripped
+        Examples:
+          'EquipmentAndInventoryCosts_30' + '' -> 'Equipment And Inventory Costs'
+          'Total_22' + '' -> 'Total'
+          'EquipmentAndInventoryCosts_30' + 'Equipment and inventory costs' -> 'Equipment and inventory costs'
+        """
+        if pref_label:
+            return pref_label.strip()
+        key = re.sub(r'_\d+$', '', node_key)           # strip trailing numeric suffix _30, _22, etc.
+        key = re.sub(r'([a-z])([A-Z])', r'\1 \2', key) # insert space before each upper after lower
+        return key.strip()
+
+    @staticmethod
     def build_enriched_collection(
             nodes: Dict[str, Dict[str, str]],
             max_child_labels: int = 15,
-            enrich_units: bool = False) -> Dict[str, Dict[str, str]]:
+            enrich_units: bool = False,
+            readable_node_labels: bool = False) -> Dict[str, Dict[str, str]]:
         """
             Enrich document representations for the ColBERT collection by cross-pollinating
             information between tables and their child measures/dimensions.
@@ -300,6 +340,10 @@ class ColBERTTrainer(object):
             :param nodes: raw output from get_graph_node_labels
             :param max_child_labels: max number of child labels to append per type to a table body
                                      (to stay within ColBERT's doc_maxlen)
+            :param enrich_units: if True, append QUDT unit strings to table documents
+            :param readable_node_labels: if True, replace raw camelCase node keys in unit strings
+                                         with skos:prefLabel (or CamelCase-split fallback), and skip
+                                         purely numeric node keys that carry no semantic signal
             :return: A new nodes dict with enriched 'body' fields
         """
         tables = {k: v for k, v in nodes.items() if v['type'] == 'table'}
@@ -338,25 +382,35 @@ class ColBERTTrainer(object):
             if enrich_units:
                 from odata_graph import engine as _engine
                 unit_map = _engine.get_table_measure_units(table_id)
-                # Collect unique unit labels across all measures (skip pure-numeric node IDs).
-                # Format: "minutes (MIN), passenger kilometres (KiloM)" — compact, deduplicated.
-                seen_pairs: set = set()
+
+                # Build node_key -> prefLabel lookup from in-memory nodes (no extra SPARQL calls).
+                # Nodes are keyed as "{table_id}#{node_id}"; strip the table prefix to get the bare key.
+                node_pref_labels: Dict[str, str] = {}
+                if readable_node_labels:
+                    for nk, nv in nodes.items():
+                        if nk.startswith(f"{table_id}#"):
+                            bare_key = nk.split('#', 1)[1]
+                            node_pref_labels[bare_key] = nv.get('prefLabel', '')
+
                 unit_parts = []
                 for node_key, unit_info in unit_map.items():
-                    if node_key.isdigit():
-                        continue  # skip numeric aliases (e.g. '7', '6') — same node, duplicate data
-                    qudt_codes = [u.rsplit('/', 1)[-1] for u in unit_info['units']]
-                    for cbs in unit_info['cbs_units'] or [None]:
-                        for code in qudt_codes or [None]:
-                            pair = (cbs, code)
-                            if pair in seen_pairs or pair == (None, None):
-                                continue
-                            seen_pairs.add(pair)
-                            label = cbs.strip() if cbs else code
-                            suffix = f" ({code})" if code and cbs and code != cbs else ""
-                            unit_parts.append(f"{label}{suffix}")
-                    if not qudt_codes and not unit_info['cbs_units']:
+                    # Skip purely numeric node keys when readable labels are enabled — they carry no semantic signal.
+                    if readable_node_labels and re.fullmatch(r'\d+', node_key):
                         continue
+
+                    qudt_codes = [u.rsplit('/', 1)[-1] for u in unit_info['units']]
+                    all_unit_strs = qudt_codes + unit_info['cbs_units']
+                    unit_str = '; '.join(u.strip() for u in all_unit_strs if u.strip())
+
+                    if readable_node_labels:
+                        # Prefer skos:prefLabel from KG; fall back to CamelCase splitting.
+                        pref = node_pref_labels.get(node_key, '')
+                        display_key = ColBERTTrainer._readable_node_label(node_key, pref)
+                    else:
+                        # Phase B1 format: raw node_key preserved verbatim.
+                        display_key = node_key
+
+                    unit_parts.append(f"{display_key} ({unit_str})" if unit_str else display_key)
                 if unit_parts:
                     suffix_parts.append(f"Measure units: {', '.join(unit_parts)}")
 
@@ -558,7 +612,10 @@ class ColBERTTrainer(object):
 
         logger.info(f"Mined {len(new_triples)} hard negative triples and saved to {triples_path}")
 
-    def rebuild_collection(self, include_time_geo_dims: bool = False, enrich_units: bool = False):
+    def rebuild_collection(self,
+                           include_time_geo_dims: bool = False,
+                           enrich_units: bool = False,
+                           readable_node_labels: bool = False):
         """
             Rebuild the collection TSV and node_pid_map from the current state of the SPARQL graph.
             This can be used independently of training to update the collection when new tables or
@@ -568,6 +625,8 @@ class ColBERTTrainer(object):
             Invalidates the pickle cache and removes stale index directories to ensure a clean state.
 
             :param include_time_geo_dims: whether to include time and geo dimensions in the collection
+            :param enrich_units: if True, append QUDT unit strings to table documents
+            :param readable_node_labels: if True, use readable labels in unit strings instead of raw camelCase node keys
             :return: tuple of (collection DataFrame, node_pid_map dict)
         """
         pk_file = self.collection_path.replace('.tsv', '.pk')
@@ -586,7 +645,8 @@ class ColBERTTrainer(object):
 
         # Fetch all nodes from the graph and enrich
         nodes = self.get_graph_node_labels(include_time_geo_dims=include_time_geo_dims)
-        nodes = self.build_enriched_collection(nodes, enrich_units=enrich_units)
+        nodes = self.build_enriched_collection(nodes, enrich_units=enrich_units,
+                                               readable_node_labels=readable_node_labels)
         nodes = {k: v for k, v in nodes.items() if self.mode == 'all' or v['type'] == self.mode}
 
         collection = pd.DataFrame.from_dict({
@@ -923,6 +983,15 @@ if __name__ == "__main__":
                         help='Rebuild the collection TSV and node_pid_map from the current SPARQL graph, '
                              'then exit. Does not train or require QA data. Useful when new tables/nodes '
                              'have been added to the graph and the index needs updating.')
+    parser.add_argument('--enrich_units', action='store_true',
+                        help='Include QUDT unit strings in table documents when rebuilding the collection.')
+    parser.add_argument('--readable_node_labels', action='store_true',
+                        help='Replace raw camelCase node keys in unit strings with skos:prefLabel '
+                             '(or CamelCase-split fallback). Requires --enrich_units. '
+                             'Produces Phase B2 collection format.')
+    parser.add_argument('--collection_variant', type=str, default=None,
+                        help='Suffix for the collection filename (e.g. "kg_units_b2" produces '
+                             'collection_table_kg_units_b2.tsv). Defaults to no suffix.')
 
     args = parser.parse_args()
 
@@ -931,8 +1000,12 @@ if __name__ == "__main__":
             output_name=args.output_name,
             mode=args.mode,
             rebuild_only=True,
+            collection_variant=args.collection_variant,
         )
-        trainer.rebuild_collection()
+        trainer.rebuild_collection(
+            enrich_units=args.enrich_units,
+            readable_node_labels=args.readable_node_labels,
+        )
     else:
         trainer = ColBERTTrainer(
             output_name=args.output_name,

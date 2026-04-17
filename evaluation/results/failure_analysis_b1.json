@@ -1,0 +1,965 @@
+{
+  "variant": "kg_units",
+  "k": 10,
+  "accuracy": 0.8859934853420195,
+  "total": 307,
+  "n_hits": 272,
+  "n_misses": 35,
+  "by_type": {
+    "AVG": {
+      "hits": 38,
+      "misses": 4,
+      "acc": 0.9047619047619048
+    },
+    "JOIN": {
+      "hits": 57,
+      "misses": 8,
+      "acc": 0.8769230769230769
+    },
+    "MAX": {
+      "hits": 25,
+      "misses": 5,
+      "acc": 0.8333333333333334
+    },
+    "MIN": {
+      "hits": 29,
+      "misses": 4,
+      "acc": 0.8787878787878788
+    },
+    "PROP": {
+      "hits": 20,
+      "misses": 2,
+      "acc": 0.9090909090909091
+    },
+    "SUM": {
+      "hits": 34,
+      "misses": 6,
+      "acc": 0.85
+    },
+    "VALUE": {
+      "hits": 69,
+      "misses": 6,
+      "acc": 0.92
+    }
+  },
+  "most_missed_tables": [
+    [
+      "81156eng",
+      11
+    ],
+    [
+      "85799ENG",
+      5
+    ],
+    [
+      "82538ENG",
+      4
+    ],
+    [
+      "85806ENG",
+      4
+    ],
+    [
+      "81154eng",
+      4
+    ],
+    [
+      "85882ENG",
+      2
+    ],
+    [
+      "82291ENG",
+      1
+    ],
+    [
+      "7425eng",
+      1
+    ],
+    [
+      "81850ENG",
+      1
+    ],
+    [
+      "85872ENG",
+      1
+    ],
+    [
+      "80393eng",
+      1
+    ],
+    [
+      "81234eng",
+      1
+    ],
+    [
+      "85429ENG",
+      1
+    ],
+    [
+      "82610ENG",
+      1
+    ],
+    [
+      "84917ENG",
+      1
+    ],
+    [
+      "80783eng",
+      1
+    ],
+    [
+      "81628ENG",
+      1
+    ],
+    [
+      "7052eng",
+      1
+    ],
+    [
+      "84918ENG",
+      1
+    ],
+    [
+      "85899ENG",
+      1
+    ],
+    [
+      "82659ENG",
+      1
+    ]
+  ],
+  "most_confused_tables": [
+    [
+      "85609ENG",
+      14
+    ],
+    [
+      "81234eng",
+      10
+    ],
+    [
+      "7055eng",
+      9
+    ],
+    [
+      "85206ENG",
+      9
+    ],
+    [
+      "85201ENG",
+      9
+    ],
+    [
+      "84985ENG",
+      8
+    ],
+    [
+      "85200ENG",
+      8
+    ],
+    [
+      "85204ENG",
+      7
+    ],
+    [
+      "85209ENG",
+      7
+    ],
+    [
+      "85798ENG",
+      6
+    ],
+    [
+      "85611ENG",
+      6
+    ],
+    [
+      "85208ENG",
+      6
+    ],
+    [
+      "85771ENG",
+      5
+    ],
+    [
+      "85257ENG",
+      5
+    ],
+    [
+      "81528ENG",
+      4
+    ],
+    [
+      "80305ENG",
+      4
+    ],
+    [
+      "84769ENG",
+      4
+    ],
+    [
+      "82519ENG",
+      4
+    ],
+    [
+      "85612ENG",
+      4
+    ],
+    [
+      "85843ENG",
+      4
+    ],
+    [
+      "84747ENG",
+      4
+    ],
+    [
+      "84746ENG",
+      4
+    ],
+    [
+      "85878ENG",
+      4
+    ],
+    [
+      "86068ENG",
+      4
+    ],
+    [
+      "83457ENG",
+      4
+    ],
+    [
+      "83728ENG",
+      4
+    ],
+    [
+      "85614ENG",
+      4
+    ],
+    [
+      "82062ENG",
+      3
+    ],
+    [
+      "82621ENG",
+      3
+    ],
+    [
+      "82869ENG",
+      3
+    ]
+  ],
+  "missed_questions": [
+    {
+      "question": "How much electricity was supplied to cultural, sports, and recreation facilities in Cranendonck, Coevorden, Cromstrijen, Culemborg, and Cuijk in 2010?",
+      "gold_table": [
+        "82538ENG"
+      ],
+      "predicted_top10": [
+        "82062ENG",
+        "82061ENG",
+        "82059ENG",
+        "81528ENG",
+        "80305ENG",
+        "84953ENG",
+        "82621ENG",
+        "85830ENG",
+        "86134ENG",
+        "82869ENG"
+      ],
+      "hit": false,
+      "type": "SUM"
+    },
+    {
+      "question": "What was the percentage of people with arthrosis in their hips or knees in the Caribbean Netherlands in 2017 for those aged 15-24 and those 65 or older with a high education level, and what was the fat content percentage in the same year?",
+      "gold_table": [
+        "82291ENG",
+        "7425eng"
+      ],
+      "predicted_top10": [
+        "70631eng",
+        "83884ENG",
+        "85263ENG",
+        "83166ENG",
+        "83165ENG",
+        "82069ENG",
+        "85264ENG",
+        "85366ENG",
+        "81058eng",
+        "85262ENG"
+      ],
+      "hit": false,
+      "type": "JOIN"
+    },
+    {
+      "question": "How did overall output in the Caribbean Netherlands in 2023 compare to the production levels of metal product manufacturing in the same year in the entirety of The Netherlands?",
+      "gold_table": [
+        "85799ENG",
+        "85806ENG"
+      ],
+      "predicted_top10": [
+        "7425eng",
+        "81234eng",
+        "85771ENG",
+        "85942ENG",
+        "7055eng",
+        "85943ENG",
+        "85798ENG",
+        "85609ENG",
+        "84769ENG",
+        "84789ENG"
+      ],
+      "hit": false,
+      "type": "JOIN"
+    },
+    {
+      "question": "Show the trends for the number of men employed and spending on hotels or lodging for every five years starting from 1999 until 2015",
+      "gold_table": [
+        "81850ENG",
+        "85872ENG"
+      ],
+      "predicted_top10": [
+        "85206ENG",
+        "85204ENG",
+        "84985ENG",
+        "84039ENG",
+        "85201ENG",
+        "85200ENG",
+        "82519ENG",
+        "85918ENG",
+        "84040ENG",
+        "85920ENG"
+      ],
+      "hit": false,
+      "type": "JOIN"
+    },
+    {
+      "question": "What was the average amount companies gave as scholarships to pre-primary and primary schools from 2015 to 2017?",
+      "gold_table": [
+        "80393eng"
+      ],
+      "predicted_top10": [
+        "85204ENG",
+        "85206ENG",
+        "85136ENG",
+        "85200ENG",
+        "85201ENG",
+        "85609ENG",
+        "85612ENG",
+        "83706ENG",
+        "85209ENG",
+        "84985ENG"
+      ],
+      "hit": false,
+      "type": "AVG"
+    },
+    {
+      "question": "Which industry had the lowest equipment and inventory expenses between 2011 and 2013 for wood products, pharmaceuticals, agriculture support services and general manufacturing?",
+      "gold_table": [
+        "81156eng"
+      ],
+      "predicted_top10": [
+        "7055eng",
+        "81234eng",
+        "85209ENG",
+        "85798ENG",
+        "83547ENG",
+        "83566ENG",
+        "85134ENG",
+        "85808ENG",
+        "84985ENG",
+        "85771ENG"
+      ],
+      "hit": false,
+      "type": "MIN"
+    },
+    {
+      "question": "Which sector among tobacco manufacturing, electronics retail, inland water transportation, and transport agents had the lowest employment or financial figures in 2013?",
+      "gold_table": [
+        "81156eng"
+      ],
+      "predicted_top10": [
+        "82519ENG",
+        "85609ENG",
+        "85610ENG",
+        "85611ENG",
+        "81351ENG",
+        "85843ENG",
+        "84769ENG",
+        "85204ENG",
+        "85200ENG",
+        "81352ENG"
+      ],
+      "hit": false,
+      "type": "MIN"
+    },
+    {
+      "question": "How did textile and leather manufacturers rate their order book outlook in July 2019, and what was the upper 95% limit for annual export growth of machinery and transport goods to Guatemala during the same month?",
+      "gold_table": [
+        "81234eng",
+        "85429ENG"
+      ],
+      "predicted_top10": [
+        "84747ENG",
+        "84746ENG",
+        "84748ENG",
+        "85257ENG",
+        "85878ENG",
+        "86068ENG",
+        "83101ENG",
+        "83457ENG",
+        "84668ENG",
+        "83728ENG"
+      ],
+      "hit": false,
+      "type": "JOIN"
+    },
+    {
+      "question": "What proportion of communication expenses and employer social insurance contributions in 2017 were attributed to bakery manufacturing compared to research, plastic production, and machinery installation sectors?",
+      "gold_table": [
+        "81156eng"
+      ],
+      "predicted_top10": [
+        "7055eng",
+        "81234eng",
+        "84985ENG",
+        "60006eng",
+        "85609ENG",
+        "85209ENG",
+        "85843ENG",
+        "80337eng",
+        "85206ENG",
+        "80335eng"
+      ],
+      "hit": false,
+      "type": "PROP"
+    },
+    {
+      "question": "In which year between 2016 and 2018 did the employment or financial figures peak for the leather and footwear manufacturing sector?",
+      "gold_table": [
+        "81156eng"
+      ],
+      "predicted_top10": [
+        "85843ENG",
+        "85208ENG",
+        "85206ENG",
+        "7055eng",
+        "85204ENG",
+        "85609ENG",
+        "81234eng",
+        "85611ENG",
+        "85201ENG",
+        "85209ENG"
+      ],
+      "hit": false,
+      "type": "MAX"
+    },
+    {
+      "question": "Total number of businesses in the Caribbean Netherlands for 2021 and 2022",
+      "gold_table": [
+        "85799ENG"
+      ],
+      "predicted_top10": [
+        "85609ENG",
+        "85201ENG",
+        "85610ENG",
+        "85614ENG",
+        "85200ENG",
+        "85611ENG",
+        "85612ENG",
+        "85206ENG",
+        "85208ENG",
+        "84769ENG"
+      ],
+      "hit": false,
+      "type": "SUM"
+    },
+    {
+      "question": "What was the average annual number of offshore wind power installations completed between 2009 and 2013?",
+      "gold_table": [
+        "82610ENG"
+      ],
+      "predicted_top10": [
+        "82870ENG",
+        "81154eng",
+        "82539ENG",
+        "82866ENG",
+        "82332ENG",
+        "85799ENG",
+        "85015ENG",
+        "82869ENG",
+        "82557ENG",
+        "82867ENG"
+      ],
+      "hit": false,
+      "type": "AVG"
+    },
+    {
+      "question": "What were the other personnel costs in 2013 for the sectors of cocoa and confectionary manufacturing, wholesale of construction materials, and market research and opinion polling?",
+      "gold_table": [
+        "81156eng"
+      ],
+      "predicted_top10": [
+        "7055eng",
+        "83547ENG",
+        "81234eng",
+        "84985ENG",
+        "60006eng",
+        "85771ENG",
+        "85798ENG",
+        "85609ENG",
+        "85843ENG",
+        "85209ENG"
+      ],
+      "hit": false,
+      "type": "VALUE"
+    },
+    {
+      "question": "What proportion companies with operational results over 837 million euros in 2021 were in the food and drinks industry?",
+      "gold_table": [
+        "81156eng"
+      ],
+      "predicted_top10": [
+        "85609ENG",
+        "85201ENG",
+        "85200ENG",
+        "85611ENG",
+        "85206ENG",
+        "85204ENG",
+        "85208ENG",
+        "85612ENG",
+        "7055eng",
+        "84985ENG"
+      ],
+      "hit": false,
+      "type": "PROP"
+    },
+    {
+      "question": "Which industry had the lowest equipment and inventory expenses in 2013: wood products, pharmaceuticals, agriculture support services, or general manufacturing?",
+      "gold_table": [
+        "81156eng"
+      ],
+      "predicted_top10": [
+        "7055eng",
+        "81234eng",
+        "83547ENG",
+        "83566ENG",
+        "85209ENG",
+        "85798ENG",
+        "85134ENG",
+        "85808ENG",
+        "85771ENG",
+        "81071ENG"
+      ],
+      "hit": false,
+      "type": "MIN"
+    },
+    {
+      "question": "Which island in the Caribbean Netherlands had the highest number of households and businesses in 2021, with a maximum value of 15,388?",
+      "gold_table": [
+        "81154eng"
+      ],
+      "predicted_top10": [
+        "82519ENG",
+        "82867ENG",
+        "82870ENG",
+        "83707ENG",
+        "84769ENG",
+        "85201ENG",
+        "85614ENG",
+        "82803ENG",
+        "85723ENG",
+        "85799ENG"
+      ],
+      "hit": false,
+      "type": "MAX"
+    },
+    {
+      "question": "What was the average use of biogasoline in transportation for 2012 and 2013?",
+      "gold_table": [
+        "84917ENG"
+      ],
+      "predicted_top10": [
+        "84714ENG",
+        "86103ENG",
+        "84596ENG",
+        "37823eng",
+        "85899ENG",
+        "85592ENG",
+        "80030eng",
+        "82610ENG",
+        "83989ENG",
+        "84472ENG"
+      ],
+      "hit": false,
+      "type": "AVG"
+    },
+    {
+      "question": "How much electricity was delivered to sports centers in Amstelveen in 2010?",
+      "gold_table": [
+        "82538ENG"
+      ],
+      "predicted_top10": [
+        "83374ENG",
+        "83376ENG",
+        "81528ENG",
+        "80305ENG",
+        "82869ENG",
+        "70256eng",
+        "85830ENG",
+        "84953ENG",
+        "85560ENG",
+        "81154eng"
+      ],
+      "hit": false,
+      "type": "VALUE"
+    },
+    {
+      "question": "Compare the number of businesses and homes in Bonaire with the count of goats raised in Smilde en Centr. Zandgebied for 2022 and 2023.",
+      "gold_table": [
+        "81154eng",
+        "80783eng"
+      ],
+      "predicted_top10": [
+        "82621ENG",
+        "85614ENG",
+        "83162ENG",
+        "85819ENG",
+        "80503eng",
+        "83707ENG",
+        "82062ENG",
+        "80305ENG",
+        "84413ENG",
+        "83558ENG"
+      ],
+      "hit": false,
+      "type": "JOIN"
+    },
+    {
+      "question": "Which sector, between basic metals production and plastic tube manufacturing, had the highest closing inventory value in 2023?",
+      "gold_table": [
+        "81156eng"
+      ],
+      "predicted_top10": [
+        "85798ENG",
+        "85771ENG",
+        "81234eng",
+        "7055eng",
+        "85209ENG",
+        "85770ENG",
+        "85609ENG",
+        "85986ENG",
+        "85806ENG",
+        "85612ENG"
+      ],
+      "hit": false,
+      "type": "MAX"
+    },
+    {
+      "question": "How many households and businesses were there in the Caribbean Netherlands in 2020, and what was the total number of university-trained medical graduates during the same year?",
+      "gold_table": [
+        "81154eng",
+        "81628ENG"
+      ],
+      "predicted_top10": [
+        "82293ENG",
+        "85206ENG",
+        "85201ENG",
+        "82291ENG",
+        "85200ENG",
+        "85204ENG",
+        "85609ENG",
+        "85208ENG",
+        "84985ENG",
+        "85611ENG"
+      ],
+      "hit": false,
+      "type": "JOIN"
+    },
+    {
+      "question": "What was the average value of all financial transactions in 2020 for monetary institutions, financial auxiliaries, households, and the funeral services industry?",
+      "gold_table": [
+        "85882ENG",
+        "81156eng"
+      ],
+      "predicted_top10": [
+        "85890ENG",
+        "83652ENG",
+        "85821ENG",
+        "85883ENG",
+        "37979eng",
+        "83085ENG",
+        "81655ENG",
+        "82242ENG",
+        "85672ENG",
+        "85867ENG"
+      ],
+      "hit": false,
+      "type": "AVG"
+    },
+    {
+      "question": "How many accidental poisoning deaths occurred in 1999 among children aged 5-10 and adults aged 35-40 in relation to the total households and companies in Bonaire?",
+      "gold_table": [
+        "7052eng",
+        "81154eng"
+      ],
+      "predicted_top10": [
+        "85206ENG",
+        "85201ENG",
+        "85204ENG",
+        "85200ENG",
+        "85208ENG",
+        "81059eng",
+        "82519ENG",
+        "82292ENG",
+        "85609ENG",
+        "81058eng"
+      ],
+      "hit": false,
+      "type": "JOIN"
+    },
+    {
+      "question": "What are the total sales costs for the information service activities sector from 2017 to 2021?",
+      "gold_table": [
+        "81156eng"
+      ],
+      "predicted_top10": [
+        "80337eng",
+        "80336eng",
+        "80335eng",
+        "85817ENG",
+        "85200ENG",
+        "85201ENG",
+        "83706ENG",
+        "85136ENG",
+        "85609ENG",
+        "85208ENG"
+      ],
+      "hit": false,
+      "type": "SUM"
+    },
+    {
+      "question": "What was the combined total for consolidated transactions of financial auxiliaries, households, NPISHs, and monetary financial institutions, together with all funeral industry activities in 2020?",
+      "gold_table": [
+        "85882ENG",
+        "81156eng"
+      ],
+      "predicted_top10": [
+        "83652ENG",
+        "85890ENG",
+        "81655ENG",
+        "85883ENG",
+        "85867ENG",
+        "85609ENG",
+        "37979eng",
+        "80158eng",
+        "85821ENG",
+        "85206ENG"
+      ],
+      "hit": false,
+      "type": "SUM"
+    },
+    {
+      "question": "Total electricity consumption in Aalburg in 2013 for branches consuming less than 1214 million kwh within real estate activities, hospitality businesses, and business services",
+      "gold_table": [
+        "82538ENG"
+      ],
+      "predicted_top10": [
+        "83374ENG",
+        "82621ENG",
+        "83376ENG",
+        "81528ENG",
+        "85610ENG",
+        "84039ENG",
+        "85614ENG",
+        "85611ENG",
+        "85609ENG",
+        "84985ENG"
+      ],
+      "hit": false,
+      "type": "SUM"
+    },
+    {
+      "question": "Which area, Urk or Utrecht, received the highest amount of electricity for transport and storage activities in 2010?",
+      "gold_table": [
+        "82538ENG"
+      ],
+      "predicted_top10": [
+        "84687ENG",
+        "82062ENG",
+        "81528ENG",
+        "85055ENG",
+        "85056ENG",
+        "84413ENG",
+        "80305ENG",
+        "84711ENG",
+        "37925eng",
+        "85923ENG"
+      ],
+      "hit": false,
+      "type": "MAX"
+    },
+    {
+      "question": "How much conventional energy and what percentage of total consumption was saved by using biomass boilers for heating from 2006 to 2010?",
+      "gold_table": [
+        "84918ENG"
+      ],
+      "predicted_top10": [
+        "85899ENG",
+        "86103ENG",
+        "80030eng",
+        "84472ENG",
+        "84917ENG",
+        "83989ENG",
+        "85592ENG",
+        "84596ENG",
+        "37823eng",
+        "82610ENG"
+      ],
+      "hit": false,
+      "type": "VALUE"
+    },
+    {
+      "question": "How much wood-based biomass was exported from the country in 2015?",
+      "gold_table": [
+        "85899ENG"
+      ],
+      "predicted_top10": [
+        "84747ENG",
+        "85257ENG",
+        "85878ENG",
+        "84746ENG",
+        "83728ENG",
+        "83457ENG",
+        "84748ENG",
+        "86068ENG",
+        "83180ENG",
+        "83101ENG"
+      ],
+      "hit": false,
+      "type": "VALUE"
+    },
+    {
+      "question": "Which industries among wood products, pharmaceuticals, apparel, and other manufacturing had a seasonally adjusted foreign turnover different from 72.7 in 2011?",
+      "gold_table": [
+        "85806ENG"
+      ],
+      "predicted_top10": [
+        "85942ENG",
+        "85809ENG",
+        "85257ENG",
+        "84747ENG",
+        "81234eng",
+        "85824ENG",
+        "85798ENG",
+        "85878ENG",
+        "84746ENG",
+        "86068ENG"
+      ],
+      "hit": false,
+      "type": "VALUE"
+    },
+    {
+      "question": "Production value for paper manufacturing and other durable consumer goods industries in 2013",
+      "gold_table": [
+        "85806ENG"
+      ],
+      "predicted_top10": [
+        "81234eng",
+        "7055eng",
+        "85770ENG",
+        "85899ENG",
+        "83131ENG",
+        "84046ENG",
+        "83134ENG",
+        "82610ENG",
+        "83132ENG",
+        "71905eng"
+      ],
+      "hit": false,
+      "type": "VALUE"
+    },
+    {
+      "question": "What is the highest recorded number of households in Bonaire between 2021 and 2022?",
+      "gold_table": [
+        "85799ENG"
+      ],
+      "predicted_top10": [
+        "82866ENG",
+        "82557ENG",
+        "82292ENG",
+        "82870ENG",
+        "82559ENG",
+        "85723ENG",
+        "85902ENG",
+        "83698ENG",
+        "85855ENG",
+        "83774ENG"
+      ],
+      "hit": false,
+      "type": "MAX"
+    },
+    {
+      "question": "What is the lowest number of households recorded in the Caribbean Netherlands between 2021 and 2022?",
+      "gold_table": [
+        "85799ENG"
+      ],
+      "predicted_top10": [
+        "85723ENG",
+        "82559ENG",
+        "82866ENG",
+        "82292ENG",
+        "85902ENG",
+        "82557ENG",
+        "84570ENG",
+        "85855ENG",
+        "85674ENG",
+        "83698ENG"
+      ],
+      "hit": false,
+      "type": "MIN"
+    },
+    {
+      "question": "Compare production levels in Sint-Eustatius in 2021 and 2022 to output in tobacco manufacturing for the same years",
+      "gold_table": [
+        "85799ENG",
+        "85806ENG"
+      ],
+      "predicted_top10": [
+        "7425eng",
+        "81234eng",
+        "85636ENG",
+        "85251ENG",
+        "37590eng",
+        "85943ENG",
+        "85770ENG",
+        "85257ENG",
+        "83457ENG",
+        "83728ENG"
+      ],
+      "hit": false,
+      "type": "JOIN"
+    },
+    {
+      "question": "Total export value for beverages, machinery, animal oils, and fuels from Caribbean Netherlands in 2018",
+      "gold_table": [
+        "82659ENG"
+      ],
+      "predicted_top10": [
+        "84747ENG",
+        "85257ENG",
+        "83457ENG",
+        "83728ENG",
+        "85942ENG",
+        "86068ENG",
+        "84746ENG",
+        "84748ENG",
+        "85878ENG",
+        "7425eng"
+      ],
+      "hit": false,
+      "type": "SUM"
+    }
+  ]
+}
