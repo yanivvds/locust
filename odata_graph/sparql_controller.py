@@ -474,6 +474,194 @@ class SparqlEngine(object):
             'description': d['description']['value']
         } for d in res}
 
+    def get_table_schema_labels(self, nodes: list) -> dict:
+        """Batch-fetch dimension group names and measure names for a list of table URIs.
+
+        Returns dimension GROUP names (e.g. "Regions", "Periods", "Type of bankruptcy")
+        and measure names (e.g. "Pronounced bankruptcies") — not individual dimension values.
+
+        Dimension filtering: requires dct:identifier on the dimension property, excludes
+        concepts with skos:broader (individual values), and filters out short geo/time codes
+        like PV31, BU, WK via STRLEN + regex.
+
+        :param nodes: list of table URI strings (same format as get_table_titles)
+        :returns: {table_id: {'dimensions': [label, ...], 'measures': [label, ...]}}
+        """
+        explode_tables = [n for n in nodes if n in Table.rdf_ns]
+        if not explode_tables:
+            return {}
+        table_filter = "?s IN (<" + '>, <'.join(explode_tables) + ">)"
+
+        # Two separate queries instead of UNION: Oxigraph's HashJoinIterator materialises
+        # ~1.7 GB of intermediate results when FILTER NOT EXISTS appears inside a UNION,
+        # causing >10 min hangs even with a small VALUES/FILTER set.
+        dim_query = (f"""
+            PREFIX qb:   <http://purl.org/linked-data/cube#>
+            PREFIX dct:  <http://purl.org/dc/terms/>
+            PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+            SELECT DISTINCT ?table_id ?label WHERE {{
+                ?s dct:identifier ?table_id .
+                FILTER ({table_filter}) .
+                ?s qb:dimension ?dim .
+                ?dim dct:identifier ?dim_id ;
+                     qb:concept ?concept .
+                ?concept dct:isPartOf ?s ;
+                         skos:prefLabel ?label .
+                FILTER NOT EXISTS {{ ?concept skos:broader ?parent }}
+                FILTER (!REGEX(STR(?dim_id), "[0-9]"))
+                FILTER (STRLEN(STR(?dim_id)) > 3)
+            }}
+        """)
+
+        msr_query = (f"""
+            PREFIX qb:   <http://purl.org/linked-data/cube#>
+            PREFIX dct:  <http://purl.org/dc/terms/>
+            PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+            SELECT DISTINCT ?table_id ?label WHERE {{
+                ?s dct:identifier ?table_id .
+                FILTER ({table_filter}) .
+                ?s qb:measure ?msr .
+                ?msr qb:concept ?concept .
+                ?concept skos:prefLabel ?label .
+            }}
+        """)
+
+        result = {}
+        for d in self.select(dim_query):
+            tid = uri_to_code(d['table_id']['value'])
+            label = d['label']['value']
+            if tid not in result:
+                result[tid] = {'dimensions': [], 'measures': []}
+            if label not in result[tid]['dimensions']:
+                result[tid]['dimensions'].append(label)
+        for d in self.select(msr_query):
+            tid = uri_to_code(d['table_id']['value'])
+            label = d['label']['value']
+            if tid not in result:
+                result[tid] = {'dimensions': [], 'measures': []}
+            if label not in result[tid]['measures']:
+                result[tid]['measures'].append(label)
+        return result
+
+    def get_all_table_titles(self) -> dict:
+        """Pre-load title and description for every table in the graph.
+
+        :returns: {table_id: {'title': ..., 'description': ...}}
+        """
+        query = ("""
+            PREFIX dct: <http://purl.org/dc/terms/>
+
+            SELECT DISTINCT ?id ?title ?description WHERE {
+                ?s dct:identifier ?id ;
+                   dct:title ?title ;
+                   dct:description ?description .
+            }
+        """)
+        res = self.select(query)
+        return {uri_to_code(d['id']['value']): {
+            'title': d['title']['value'],
+            'description': d['description']['value']
+        } for d in res}
+
+    def get_all_table_schema_labels(self) -> dict:
+        """Pre-load dimension group names and measure names for every table in the graph.
+
+        Same logic as get_table_schema_labels but without a VALUES filter —
+        queries all tables in a single pass. Use at init time to avoid per-question overhead.
+
+        :returns: {table_id: {'dimensions': [label, ...], 'measures': [label, ...]}}
+        """
+        dim_query = ("""
+            PREFIX qb:   <http://purl.org/linked-data/cube#>
+            PREFIX dct:  <http://purl.org/dc/terms/>
+            PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+            SELECT DISTINCT ?table_id ?label WHERE {
+                ?s dct:identifier ?table_id .
+                ?s qb:dimension ?dim .
+                ?dim dct:identifier ?dim_id ;
+                     qb:concept ?concept .
+                ?concept dct:isPartOf ?s ;
+                         skos:prefLabel ?label .
+                FILTER NOT EXISTS { ?concept skos:broader ?parent }
+                FILTER (!REGEX(STR(?dim_id), "[0-9]"))
+                FILTER (STRLEN(STR(?dim_id)) > 3)
+            }
+        """)
+
+        msr_query = ("""
+            PREFIX qb:   <http://purl.org/linked-data/cube#>
+            PREFIX dct:  <http://purl.org/dc/terms/>
+            PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+            SELECT DISTINCT ?table_id ?label WHERE {
+                ?s dct:identifier ?table_id .
+                ?s qb:measure ?msr .
+                ?msr qb:concept ?concept .
+                ?concept skos:prefLabel ?label .
+            }
+        """)
+
+        result = {}
+        for d in self.select(dim_query):
+            tid = uri_to_code(d['table_id']['value'])
+            label = d['label']['value']
+            if tid not in result:
+                result[tid] = {'dimensions': [], 'measures': []}
+            if label not in result[tid]['dimensions']:
+                result[tid]['dimensions'].append(label)
+        for d in self.select(msr_query):
+            tid = uri_to_code(d['table_id']['value'])
+            label = d['label']['value']
+            if tid not in result:
+                result[tid] = {'dimensions': [], 'measures': []}
+            if label not in result[tid]['measures']:
+                result[tid]['measures'].append(label)
+        return result
+
+    def get_all_table_time_coverage(self) -> dict:
+        """Pre-compute time coverage (min year – max year) for every table in the graph.
+
+        Runs once at reranker init time; results are cached so per-question overhead is zero.
+        Uses MIN/MAX over time dimension concept labels that start with a 4-digit year.
+
+        :returns: {table_id: 'YYYY–YYYY'} or {table_id: 'YYYY'} for single-year tables.
+                  Tables without a TimeDimension are absent from the dict.
+        """
+        query = ("""
+            PREFIX qb:   <http://purl.org/linked-data/cube#>
+            PREFIX dct:  <http://purl.org/dc/terms/>
+            PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+            SELECT ?table_id (MIN(?time_label) AS ?min_period) (MAX(?time_label) AS ?max_period) WHERE {
+                ?s dct:identifier ?table_id .
+                ?s qb:dimension ?dim .
+                ?dim qb:concept ?concept .
+                ?concept dct:isPartOf ?s ;
+                         skos:prefLabel ?time_label .
+                FILTER EXISTS {
+                    ?dim a 'TimeDimension' ;
+                         skos:broader ?d .
+                }
+                FILTER (REGEX(STR(?time_label), "^[0-9][0-9][0-9][0-9]"))
+            }
+            GROUP BY ?table_id
+        """)
+
+        res = self.select(query)
+        result = {}
+        for d in res:
+            tid = uri_to_code(d['table_id']['value'])
+            min_p = d.get('min_period', {}).get('value', '')
+            max_p = d.get('max_period', {}).get('value', '')
+            min_year = min_p[:4] if min_p else ''
+            max_year = max_p[:4] if max_p else ''
+            if min_year:
+                result[tid] = f"{min_year}\u2013{max_year}" if min_year != max_year else min_year
+        return result
+
     def validate_msr_unit_compatibility(self, measures: Set[Measure], allow_different_scaling: bool = True) -> Dict[str, Dict[str, str]]:
         """
             Validate whether an operation performed on the measures is allowed based on the measures' units.

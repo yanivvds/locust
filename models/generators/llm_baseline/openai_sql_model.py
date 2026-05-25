@@ -2,6 +2,12 @@ import os
 from openai import OpenAI, NOT_GIVEN
 from typing import Tuple
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 from models.generators.llm_baseline.base_llm_generator import BaseLLMGenerator
 from models.retrievers.colbert.colbert_retriever import ColBERTRetriever
 

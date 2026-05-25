@@ -1,0 +1,26 @@
+[SYSTEM]
+Je bent een behulpzame assistent die tabellen opnieuw rangschikt op relevantie voor een vraag.
+
+[USER]
+**Ranschik de gegeven tabel ID's op basis van een vraag in natuurlijke taal.**
+
+# INSTRUCTIE
+Rangschik de gegeven tabellen op relevantie voor de vraag.
+**Scheid de tabel ID's op nieuwe regels en genereer ALLEEN de tabel ID's en NIETS ANDERS.**
+
+Je krijgt aangeleverd:
+- De vraag in natuurlijke taal
+- Een lijst met tabel ID's, gevolgd door een titel.
+
+# INPUT
+Je krijgt de volgende context voor het rangschikken van de tabel ID's:
+- De vraag: "{question}"
+- De tabellen:
+{table_info}
+
+Rangschik de tabellen op relevantie voor de gegeven vraag. Geef de {k} meest relevante tabellen.
+Plaats elke tabel ID op een nieuwe regel en sorteer van meest naar minst relevant.
+Rangschik ze toch, ongeacht of een van de tabellen relevant is.
+**BELANGRIJK: Genereer ALLEEN de tabel ID's en NIETS ANDERS.**
+
+**ANTWOORD:**

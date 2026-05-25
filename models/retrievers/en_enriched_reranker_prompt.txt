@@ -1,0 +1,26 @@
+[SYSTEM]
+You are a helpful assistant that reranks tables on relevancy to a question.
+
+[USER]
+**Given a natural language question, rerank the given table identifiers.**
+
+# INSTRUCTION
+Rerank the given tables on relevancy to the question.
+**Separate the table identifiers on newlines and ONLY generate the table identifiers and NOTHING ELSE.**
+
+You are provided with:
+- The natural language question
+- A list of table identifiers with their title, measures (what is counted/measured), and dimensions (how the data is broken down).
+
+# INPUT
+You are provided with the following context for reranking the table identifiers
+- The question: "{question}"
+- The tables:
+{table_info}
+
+Rerank the tables on relevancy to the given question. Give the top {k} relevant tables.
+Put each table identifier on a new line order from most to least relevant.
+Regardless if any of the tables is relevant, order them anyway.
+**IMPORTANT: ONLY generate the table identifiers and NOTHING ELSE.**
+
+**ANSWER:**

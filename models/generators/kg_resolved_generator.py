@@ -32,7 +32,11 @@ class KGResolvedGenerator(BaseGenerator):
     def __init__(self, backend: str = 'openai', threshold: int = 80,
                  checkpoint: str = None, model: str = None,
                  reasoning: str = 'False', base_url: str = 'http://localhost:8000/v1',
-                 max_tokens: int = 2048):
+                 max_tokens: int = 2048, max_nodes_per_table: int = 500,
+                 collection_variant: str = None,
+                 use_llm_reranker: bool = False, use_enriched_reranker: bool = False,
+                 retrieval_k: int = 20, reranker_model: str = 'gpt-5.4-mini',
+                 reranker_backend: str = 'openai'):
         """
         :param backend: 'openai' or 'vllm'
         :param threshold: fuzzy match threshold for SKOS code resolver (0–100)
@@ -40,16 +44,23 @@ class KGResolvedGenerator(BaseGenerator):
         :param model: LLM model name (defaults to backend's own default if omitted)
         :param reasoning: OpenAI backend only — pass 'True' to enable reasoning effort
         :param base_url: vLLM backend only — URL of the OpenAI-compatible vLLM server
+        :param use_llm_reranker: use LLMTableReranker (ColBERT + LLM) instead of ColBERT alone
+        :param retrieval_k: ColBERT pool size for LLM reranker
         """
         super().__init__()
 
         if backend == 'vllm':
             from models.generators.llm_baseline.vllm_sql_model import VLLMBaselineSQLModel
-            vllm_kwargs = {'base_url': base_url, 'max_tokens': int(max_tokens)}
+            vllm_kwargs = {'base_url': base_url, 'max_tokens': int(max_tokens), 'max_nodes_per_table': int(max_nodes_per_table),
+                           'use_llm_reranker': use_llm_reranker, 'use_enriched_reranker': use_enriched_reranker,
+                           'retrieval_k': int(retrieval_k), 'reranker_model': reranker_model,
+                           'reranker_backend': reranker_backend}
             if model:
                 vllm_kwargs['model'] = model
             if checkpoint:
                 vllm_kwargs['checkpoint'] = checkpoint
+            if collection_variant:
+                vllm_kwargs['collection_variant'] = collection_variant
             self.base = VLLMBaselineSQLModel(**vllm_kwargs)
         else:
             from models.generators.llm_baseline.openai_sql_model import OpenAIBaselineSQLModel
@@ -62,14 +73,14 @@ class KGResolvedGenerator(BaseGenerator):
 
         self.resolver = SKOSCodeResolver(engine, threshold=int(threshold))
 
-    def generate_query(self, question: str, golden_tables: Optional[List[str]] = None,
+    def generate_query(self, question: str, retrieved_tables: Optional[List[str]] = None,
                        query_type: str = 'sql') -> Tuple[str, Tuple[int, int]]:
         """
-        Resolve schema dim codes for each golden table, inject as hints into
+        Resolve schema dim codes for each retrieved table, inject as hints into
         the question, then delegate to the base generator.
         """
         hints = {}
-        for table_id in (golden_tables or []):
+        for table_id in (retrieved_tables or []):
             hints.update(self.resolver.resolve(question, table_id))
 
         if hints:
@@ -79,5 +90,5 @@ class KGResolvedGenerator(BaseGenerator):
             enriched_question = question
 
         return self.base.generate_query(
-            enriched_question, golden_tables=golden_tables, query_type=query_type
+            enriched_question, retrieved_tables=retrieved_tables, query_type=query_type
         )

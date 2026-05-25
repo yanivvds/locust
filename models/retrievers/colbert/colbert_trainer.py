@@ -325,11 +325,29 @@ class ColBERTTrainer(object):
         return key.strip()
 
     @staticmethod
+    def _expand_skos_labels(body: str) -> str:
+        """
+        Expand a node body into prefLabel + altLabel form for SKOS enrichment.
+
+        The raw body is 'prefLabel1. prefLabel2. altLabel1. altLabel2.' — period-joined
+        from skos:prefLabel + skos:altLabel/definition/description. The default collection
+        takes only the first sentence (prefLabel). Under SKOS enrichment we surface all
+        labels so ColBERT sees altLabel vocabulary.
+        """
+        parts = [p.strip() for p in body.split('.') if p.strip()]
+        if not parts:
+            return ''
+        if len(parts) == 1:
+            return parts[0]
+        return f"{parts[0]} ({'; '.join(parts[1:])})"
+
+    @staticmethod
     def build_enriched_collection(
             nodes: Dict[str, Dict[str, str]],
             max_child_labels: int = 15,
             enrich_units: bool = False,
-            readable_node_labels: bool = False) -> Dict[str, Dict[str, str]]:
+            readable_node_labels: bool = False,
+            enrich_skos: bool = False) -> Dict[str, Dict[str, str]]:
         """
             Enrich document representations for the ColBERT collection by cross-pollinating
             information between tables and their child measures/dimensions.
@@ -344,6 +362,9 @@ class ColBERTTrainer(object):
             :param readable_node_labels: if True, replace raw camelCase node keys in unit strings
                                          with skos:prefLabel (or CamelCase-split fallback), and skip
                                          purely numeric node keys that carry no semantic signal
+            :param enrich_skos: if True, expand each measure/dimension label with its skos:altLabel
+                                vocabulary (prefLabel + altLabels) instead of the first prefLabel only.
+                                Orthogonal to enrich_units.
             :return: A new nodes dict with enriched 'body' fields
         """
         tables = {k: v for k, v in nodes.items() if v['type'] == 'table'}
@@ -370,8 +391,12 @@ class ColBERTTrainer(object):
             body = table_data['body']
             tc = table_children.get(table_id, {'measure': [], 'dimension': []})
 
-            msr_labels = [b.split('.')[0].strip() for b in tc['measure']][:max_child_labels]
-            dim_labels = [b.split('.')[0].strip() for b in tc['dimension']][:max_child_labels]
+            if enrich_skos:
+                msr_labels = [ColBERTTrainer._expand_skos_labels(b) for b in tc['measure']][:max_child_labels]
+                dim_labels = [ColBERTTrainer._expand_skos_labels(b) for b in tc['dimension']][:max_child_labels]
+            else:
+                msr_labels = [b.split('.')[0].strip() for b in tc['measure']][:max_child_labels]
+                dim_labels = [b.split('.')[0].strip() for b in tc['dimension']][:max_child_labels]
 
             suffix_parts = []
             if msr_labels:
@@ -615,7 +640,8 @@ class ColBERTTrainer(object):
     def rebuild_collection(self,
                            include_time_geo_dims: bool = False,
                            enrich_units: bool = False,
-                           readable_node_labels: bool = False):
+                           readable_node_labels: bool = False,
+                           enrich_skos: bool = False):
         """
             Rebuild the collection TSV and node_pid_map from the current state of the SPARQL graph.
             This can be used independently of training to update the collection when new tables or
@@ -627,6 +653,7 @@ class ColBERTTrainer(object):
             :param include_time_geo_dims: whether to include time and geo dimensions in the collection
             :param enrich_units: if True, append QUDT unit strings to table documents
             :param readable_node_labels: if True, use readable labels in unit strings instead of raw camelCase node keys
+            :param enrich_skos: if True, expand measure/dimension labels with skos:altLabel vocabulary
             :return: tuple of (collection DataFrame, node_pid_map dict)
         """
         pk_file = self.collection_path.replace('.tsv', '.pk')
@@ -646,7 +673,8 @@ class ColBERTTrainer(object):
         # Fetch all nodes from the graph and enrich
         nodes = self.get_graph_node_labels(include_time_geo_dims=include_time_geo_dims)
         nodes = self.build_enriched_collection(nodes, enrich_units=enrich_units,
-                                               readable_node_labels=readable_node_labels)
+                                               readable_node_labels=readable_node_labels,
+                                               enrich_skos=enrich_skos)
         nodes = {k: v for k, v in nodes.items() if self.mode == 'all' or v['type'] == self.mode}
 
         collection = pd.DataFrame.from_dict({
@@ -989,6 +1017,10 @@ if __name__ == "__main__":
                         help='Replace raw camelCase node keys in unit strings with skos:prefLabel '
                              '(or CamelCase-split fallback). Requires --enrich_units. '
                              'Produces Phase B2 collection format.')
+    parser.add_argument('--enrich_skos', action='store_true',
+                        help='Expand each measure/dimension label in the Measures/Dimensions lines '
+                             'with its skos:altLabel vocabulary (pref + alt labels) instead of the '
+                             'first prefLabel only. Orthogonal to --enrich_units.')
     parser.add_argument('--collection_variant', type=str, default=None,
                         help='Suffix for the collection filename (e.g. "kg_units_b2" produces '
                              'collection_table_kg_units_b2.tsv). Defaults to no suffix.')
@@ -1005,6 +1037,7 @@ if __name__ == "__main__":
         trainer.rebuild_collection(
             enrich_units=args.enrich_units,
             readable_node_labels=args.readable_node_labels,
+            enrich_skos=args.enrich_skos,
         )
     else:
         trainer = ColBERTTrainer(

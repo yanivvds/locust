@@ -49,6 +49,7 @@ else:
 AZURE_ENDPOINT = "<PLACEHOLDER>"
 AZURE_API_VERSION = "<PLACEHOLDER>"
 AZURE_KEY = "<PLACEHOLDER>"
+AZURE_FOUNDRY_KEY = os.getenv('AZURE_FOUNDRY_KEY', '<PLACEHOLDER>')
 
 logger.info("\n=== Running script with the following configuration ===" +
             f"\n\tLANGUAGE: {LANGUAGE}" +

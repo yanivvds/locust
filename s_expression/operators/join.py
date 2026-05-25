@@ -170,7 +170,8 @@ class Join(Expression):
 
             if len(table_fors) == 0:
                 # Default to pivot on Measure if all table dimensions are used as join selectors
-                table_fors.append(sqlglot.parse_one(f"Measure IN ('{"', '".join(measures[i])}')"))
+                _msrs = "', '".join(measures[i])
+                table_fors.append(sqlglot.parse_one(f"Measure IN ('{_msrs}')"))
 
             if len(table_fors) > 0:
                 for_statements.append(table_fors)

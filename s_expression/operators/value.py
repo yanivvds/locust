@@ -136,8 +136,9 @@ class Value(Expression):
 
         where = 'WHERE '
         if where_cols:
+            sep = "', '"
             where += ' AND '.join(
-                f"{str(group)} IN ('{'\', \''.join([str(c) for c in codes])}')" for group, codes in where_cols
+                f"{str(group)} IN ('{sep.join([str(c) for c in codes])}')" for group, codes in where_cols
             )
 
         # Comparison filters
@@ -147,21 +148,28 @@ class Value(Expression):
             _, op, val = self.measure_filter
             where += f"Value {op} {val}"
 
+        msr_str = "', '".join(str(msr) for msr in self.measures)
+        sep2 = "', '"
+        pivot_rows = []
+        for _g, _cs in self.dimensions | ({('Measure', frozenset(self.measures))} if not measure_selector else set()):
+            if str(_g) not in self.selectors and len(_cs) > 0:
+                _codes_str = sep2.join(str(c) for c in _cs)
+                pivot_rows.append("{} IN ('{}')".format(_g, _codes_str))
+        pivot_block = '\n'.join(pivot_rows)
+
         sql = f"""
             SELECT *
             FROM (
                 SELECT Measure, Value, {', '.join(str(g) for g, _ in self.dimensions)}
                 FROM '{os.path.relpath(config.DB_ODATA3_FILES)}/{self.table}.parquet'
                 UNPIVOT (
-                    Value FOR Measure IN ('{"', '".join(str(msr) for msr in self.measures)}')
+                    Value FOR Measure IN ('{msr_str}')
                 )
                 {where if where != "WHERE " else ""}
             )
             PIVOT (
                 MAX(Value)
-                FOR {'\n'.join('{} IN {}'.format(group, f"('{"', '".join({str(c) for c in codes})}')")
-                               for group, codes in self.dimensions | ({('Measure', frozenset(self.measures))} if not measure_selector else set())
-                               if str(group) not in self.selectors and len(codes) > 0)}
+                FOR {pivot_block}
             )
         """
         return sqlglot.parse_one(sql).sql(pretty=True)
@@ -187,7 +195,8 @@ class Value(Expression):
         where_statements = []
         for group, codes in self.dimensions:
             if len(codes) > 1:
-                where_statements.append(f"{group} IN ('{"', '".join({str(c) for c in codes})}')")
+                codes_str = "', '".join(str(c) for c in codes)
+                where_statements.append(f"{group} IN ('{codes_str}')")
             if len(codes) == 1:
                 where_statements.append(f"{group} = '{list(codes)[0]}'")
 

@@ -165,8 +165,8 @@ class SimpleAggregator(Expression, ABC):
             FROM ({select.sql()})
             PIVOT (
                 {self._operator}(Value)
-                FOR {'\n'.join('{} IN {}'.format(k, v) for k, v in for_statements.items())}
-                {'GROUP BY Measure' if self.selectors else ''}
+                FOR {chr(10).join('{} IN {}'.format(k, v) for k, v in for_statements.items())}
+                {('GROUP BY Measure' if self.selectors else '')}
             )
         """
         return sqlglot.parse_one(sql).sql(pretty=True)

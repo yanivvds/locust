@@ -145,8 +145,7 @@ def evaluate_query_generation(
         output_path: str,
         query_type: QueryType,
         task: Literal['end-to-end', 'query-only'],
-        model_kwargs: Dict = None,
-        max_questions: int = None) -> Dict:
+        model_kwargs: Dict = None) -> Dict:
     """
         Evaluates query generation performance.
 
@@ -162,6 +161,8 @@ def evaluate_query_generation(
     if model_kwargs is None:
         model_kwargs = {}
     dataset = load_dataset(dataset_path)
+    if model_kwargs.get("max_questions"):
+        dataset = dataset[:int(model_kwargs.pop("max_questions"))]
     model: BaseGenerator = load_model_from_path(model_path, **model_kwargs)
 
     # Get previously generated results
@@ -175,6 +176,7 @@ def evaluate_query_generation(
 
     input_token_count = 0
     output_token_count = 0
+    total_elapsed_seconds = 0.0
     exact_match = 0
     rec_accuracy = 0
     num_recall = 0
@@ -217,12 +219,7 @@ def evaluate_query_generation(
         } for q_type in QUESTION_TYPES
     }
 
-    questions_processed = 0
     for item in tqdm(dataset, desc=f"Evaluating query generation (Task: {task})", bar_format=config.TQDM_BAR_FMT):
-        if max_questions is not None and questions_processed >= max_questions:
-            total = questions_processed
-            break
-        questions_processed += 1
         question = item.question
         ground_truth_query = item[query_type]
         golden_tables = {t_id: {} for t_id in parse_for_table_id(ground_truth_query, query_type)}
@@ -234,11 +231,13 @@ def evaluate_query_generation(
                 response = None
 
         if response is None:
+            t0 = time()
             response = model.generate_query(
                 question,
                 retrieved_tables=golden_tables if task == 'query-only' else None,
                 query_type=query_type
             )
+            response.elapsed_seconds = time() - t0
 
             generated_answers[question] = response.to_dict()
             with open(output_path, "w") as f:
@@ -247,6 +246,7 @@ def evaluate_query_generation(
         predicted_query = response.query
         input_token_count += response.input_token_count
         output_token_count += response.output_token_count
+        total_elapsed_seconds += response.elapsed_seconds
 
         if not predicted_query:
             total -= 1
@@ -379,6 +379,7 @@ def evaluate_query_generation(
 
     avg_input_token_count = input_token_count / total if total > 0 else 0
     avg_output_token_count = output_token_count / total if total > 0 else 0
+    avg_elapsed_seconds = total_elapsed_seconds / total if total > 0 else 0
     em_accuracy = exact_match / total if total > 0 else 0
     rec_accuracy = (rec_accuracy / total) if total > 0 else 0
     num_recall_accuracy = (num_recall / total) if total > 0 else 0
@@ -418,6 +419,7 @@ def evaluate_query_generation(
         "query_type": query_type,
         "avg_input_token_count": avg_input_token_count,
         "avg_output_token_count": avg_output_token_count,
+        "avg_elapsed_seconds": avg_elapsed_seconds,
         "metrics": {
             "exact_match_accuracy": em_accuracy,
             "record_accuracy": rec_accuracy,
@@ -452,26 +454,21 @@ if __name__ == "__main__":
     parser.add_argument("--results_path", type=str, default="evaluation/query_generation_results.json",
                         help="Path to where to save the results JSON file with the metrics.")
     parser.add_argument("--max-questions", type=int, default=None,
-                        help="Cap evaluation at N questions for cost estimation. Omit for full run.")
+                        help="Limit evaluation to first N questions (smoke test).")
     args, unknown = parser.parse_known_args()
 
+    it = iter(tok for tok in unknown if tok.strip())
     model_kwargs = {}
-    i = 0
-    while i < len(unknown):
-        if unknown[i].startswith('--'):
-            key = unknown[i].lstrip('-')
-            if i + 1 < len(unknown) and not unknown[i + 1].startswith('-'):
-                model_kwargs[key] = unknown[i + 1]
-                i += 2
-            else:
-                model_kwargs[key] = True
-                i += 1
-        else:
-            i += 1  # skip spurious tokens (e.g. ' ' from shell backslash-space escaping)
+    for arg in it:
+        key = arg.lstrip('-').strip()
+        val = next(it, None)
+        if key and val is not None:
+            model_kwargs[key] = val
+    if args.max_questions:
+        model_kwargs['max_questions'] = args.max_questions
     results = evaluate_query_generation(args.model_path, args.dataset_path, args.output_path,
                                         args.query_type, args.task,
-                                        model_kwargs=model_kwargs,
-                                        max_questions=args.max_questions)
+                                        model_kwargs=model_kwargs)
 
     os.makedirs(os.path.dirname(args.results_path), exist_ok=True)
     with open(args.results_path, "w") as f:
@@ -480,17 +477,3 @@ if __name__ == "__main__":
     print(f"Queries saved to {args.output_path}.")
     print(f"Results saved to {args.results_path}")
     print(json.dumps(results, indent=4))
-
-    if args.max_questions:
-        full_n = len(load_dataset(args.dataset_path))
-        scale = full_n / args.max_questions
-        est_input = results["avg_input_token_count"] * full_n
-        est_output = results["avg_output_token_count"] * full_n
-        # gpt-5-mini pricing: $0.25/1M input tokens, $2.00/1M output tokens
-        est_cost = (est_input / 1e6 * 0.25) + (est_output / 1e6 * 2.00)
-        print(f"\n--- Cost estimate for full {full_n} questions ---")
-        print(f"  Avg input tokens/question : {results['avg_input_token_count']:.0f}")
-        print(f"  Avg output tokens/question: {results['avg_output_token_count']:.0f}")
-        print(f"  Estimated total input     : {est_input:,.0f} tokens")
-        print(f"  Estimated total output    : {est_output:,.0f} tokens")
-        print(f"  Estimated cost (gpt-5-mini): ~${est_cost:.2f}")

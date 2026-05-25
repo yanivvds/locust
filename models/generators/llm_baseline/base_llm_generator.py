@@ -32,13 +32,16 @@ class BaseLLMGenerator(BaseGenerator, ABC):
                       question: str,
                       tables: dict,
                       query_type: str = 'sql',
-                      max_nodes_per_table: int = 500) -> Tuple[str, str]:
+                      max_nodes_per_table: int = 500,
+                      remarks: Optional[List[Tuple[str, str]]] = None) -> Tuple[str, str]:
         """
             Builds a prompt for the LLM based on the question and retrieved tables.
 
             :param question: question string
             :param tables: dictionary of ranked tables and their nodes
             :param max_nodes_per_table: maximum number of nodes to include per table
+            :param remarks: optional list of (sql, error_message) tuples from failed attempts,
+                            appended to the user prompt so the model can correct itself.
         """
         table_info = []
         for table_id, data in tables.items():
@@ -174,6 +177,17 @@ class BaseLLMGenerator(BaseGenerator, ABC):
         user_prompt_template = prompt_template.split('[USER]')[1].strip()
 
         user_prompt = user_prompt_template.format(question=question, table_info=table_info_str)
+
+        if remarks:
+            correction_lines = ["", "The following previous SQL attempts failed. Please correct them:", ""]
+            for i, (sql, error) in enumerate(remarks, start=1):
+                correction_lines.append(f"Attempt {i}:")
+                correction_lines.append(f"SQL: {sql}")
+                correction_lines.append(f"Error: {error}")
+                correction_lines.append("")
+            correction_lines.append("Generate a corrected SQL that avoids these errors.")
+            user_prompt = user_prompt + chr(10).join(correction_lines)
+
         return system_prompt, user_prompt
 
     def _call_llm(self, system_prompt: str, user_prompt: str) -> Tuple[str, Tuple[int, int]]:
@@ -212,7 +226,10 @@ class BaseLLMGenerator(BaseGenerator, ABC):
         if not retrieved_tables:
             return LLMResponse(query="", input_token_count=0, output_token_count=0)
 
-        system_prompt, user_prompt = self._build_prompt(question, retrieved_tables, query_type=query_type)
+        system_prompt, user_prompt = self._build_prompt(
+            question, retrieved_tables, query_type=query_type, remarks=remarks,
+            max_nodes_per_table=getattr(self, 'max_nodes_per_table', 500),
+        )
         raw_response, num_tokens = self._call_llm(system_prompt, user_prompt)
         parsed = self._parse_response(raw_response, num_tokens)
         return parsed
@@ -228,4 +245,4 @@ class BaseLLMGenerator(BaseGenerator, ABC):
                 output_token_count=token_counts[1],
             )
         except (json.JSONDecodeError, AttributeError, ValueError, KeyError):
-            return LLMResponse(query="", input_token_count=0, output_token_count=0)
+            return LLMResponse(query="", input_token_count=token_counts[0], output_token_count=token_counts[1])

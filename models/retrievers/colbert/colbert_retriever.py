@@ -35,7 +35,8 @@ class ColBERTRetriever(BaseRetriever):
             override_index: bool = False,
             collection_variant: str = None,
             kg_rerank: bool = False,
-            kg_rerank_alpha: float = 0.5):
+            kg_rerank_alpha: float = 0.5,
+            kg_rerank_pool_k: int = None):
         """
             :param checkpoint: Directory containing model checkpoint. Can be:
                                - A directory name relative to {BASE_PATH} (e.g. 'my_model')
@@ -51,6 +52,8 @@ class ColBERTRetriever(BaseRetriever):
             :param kg_rerank: if True, apply KG schema-overlap reranker after ColBERT ranking. Loads
                               node label tokens from the cached node_labels JSON at init time.
             :param kg_rerank_alpha: weight for the KG overlap bonus added to each ColBERT score.
+            :param kg_rerank_pool_k: optional first-stage candidate pool size for KG reranking.
+                                     If unset, reranks only the requested top-k, preserving old behavior.
         """
         super().__init__()
         self.checkpoint = checkpoint
@@ -62,6 +65,7 @@ class ColBERTRetriever(BaseRetriever):
         self.search_depth = int(search_depth)
         self.kg_rerank = bool(kg_rerank)
         self.kg_rerank_alpha = float(kg_rerank_alpha)
+        self.kg_rerank_pool_k = int(kg_rerank_pool_k) if kg_rerank_pool_k is not None else None
         self.table_label_tokens: Dict[str, set] = {}
 
         if not config.IS_UNIT_TESTING:
@@ -181,7 +185,14 @@ class ColBERTRetriever(BaseRetriever):
             :param k: number of tables to return
             :return: ordered dictionary of tables and nodes
         """
-        ranking = self.searcher.search(query, k=self.search_depth if self.mode in ['all', 'nodes'] else k)
+        if self.mode in ['all', 'nodes']:
+            search_k = self.search_depth
+        elif self.kg_rerank and self.kg_rerank_pool_k:
+            search_k = max(k, self.kg_rerank_pool_k)
+        else:
+            search_k = k
+
+        ranking = self.searcher.search(query, k=search_k)
         ranked_items = {self.pid_node_map[pid]: {
             'score': ranking[2][idx]
         } for idx, pid in enumerate(ranking[0])}
@@ -319,6 +330,8 @@ if __name__ == "__main__":
                         help='Enable KG schema-overlap reranker post-retrieval.')
     parser.add_argument('--kg_rerank_alpha', type=float, default=0.5,
                         help='Weight for KG overlap bonus (default: 0.5).')
+    parser.add_argument('--kg_rerank_pool_k', type=int, default=None,
+                        help='First-stage candidate pool size for KG reranking. Defaults to requested k.')
 
     args = parser.parse_args()
 
@@ -328,6 +341,7 @@ if __name__ == "__main__":
         nbits=args.nbits,
         kg_rerank=args.kg_rerank,
         kg_rerank_alpha=args.kg_rerank_alpha,
+        kg_rerank_pool_k=args.kg_rerank_pool_k,
     )
 
     q = "How many people went on vacation to Germany in 2020?"

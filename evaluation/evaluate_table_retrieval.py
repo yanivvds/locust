@@ -148,19 +148,13 @@ if __name__ == "__main__":
                         help="Only plot the results of previous evaluations found in the directory of --output_path.")
     args, unknown = parser.parse_known_args()
 
+    it = iter(tok for tok in unknown if tok.strip())
     model_kwargs = {}
-    i = 0
-    while i < len(unknown):
-        if unknown[i].startswith('--'):
-            key = unknown[i].lstrip('-')
-            if i + 1 < len(unknown) and not unknown[i + 1].startswith('-'):
-                model_kwargs[key] = unknown[i + 1]
-                i += 2
-            else:
-                model_kwargs[key] = True
-                i += 1
-        else:
-            i += 1  # skip spurious tokens (e.g. ' ' from shell backslash-space escaping)
+    for arg in it:
+        key = arg.lstrip('-').strip()
+        val = next(it, None)
+        if key and val is not None:
+            model_kwargs[key] = val
 
     if not args.plot_only:
         results = evaluate_table_retrieval(args.model_path, args.dataset_path, args.query_type, args.k,

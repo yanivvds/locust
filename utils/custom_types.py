@@ -4,8 +4,8 @@ parameter input in functions when using beartype or general convenience in provi
 """
 from abc import ABC, abstractmethod
 from beartype.vale import Is
-from dataclasses import dataclass
-from typing import Annotated, List, TypeVar, Literal
+from dataclasses import dataclass, field
+from typing import Annotated, List, Optional, Tuple, Dict, TypeVar, Literal
 
 T = TypeVar('T')
 
@@ -50,13 +50,22 @@ class LLMResponse(object):
     query: str
     input_token_count: int
     output_token_count: int
+    probe_hits: Optional[Dict[str, List[str]]] = None
+    remarks: Optional[List[Tuple[str, str]]] = None
+    elapsed_seconds: float = 0.0
 
     def to_dict(self):
-        return {
+        d = {
             'query': self.query,
             'input_token_count': self.input_token_count,
-            'output_token_count': self.output_token_count
+            'output_token_count': self.output_token_count,
+            'elapsed_seconds': self.elapsed_seconds,
         }
+        if self.probe_hits is not None:
+            d['probe_hits'] = self.probe_hits
+        if self.remarks is not None:
+            d['remarks'] = self.remarks
+        return d
 
     def get(self, attr: str, default=None):
         return getattr(self, attr, default)

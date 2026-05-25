@@ -105,7 +105,8 @@ class Min(SimpleAggregator):
 
         # Add UNPIVOT if required
         if len(self.selectors) == 0:
-            sql += f"UNPIVOT(Value FOR Measure IN ('{"', '".join(map(str, measures))}'))\n"
+            _msr_str = "', '".join(map(str, measures))
+            sql += f"UNPIVOT(Value FOR Measure IN ('{_msr_str}'))\n"
 
         # Add WHERE cluse  from inner VALUE expression
         where_stmt = inner_sql.find(sqlglot.exp.Where)
